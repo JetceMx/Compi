@@ -94,7 +94,7 @@ lexer = lex.lex()
 # Definir la gramática
 def p_program(p):
     'program : PROGRAM LBRACE declarations statements RBRACE'
-    p[0] = ('program', p[3], p[4])
+    p[0] = ('program', ('declarations', p[3]), ('statements', p[4]))
 
 def p_declarations(p):
     '''declarations : declarations declaration
@@ -106,7 +106,7 @@ def p_declarations(p):
 
 def p_declaration(p):
     '''declaration : type ID declaration_list SEMI'''
-    p[0] = ('declaration', p[1], [p[2]] + p[3])
+    p[0] = ('declaration', p[1], p[2], p[3])
 
 def p_declaration_list(p):
     '''declaration_list : COMMA ID declaration_list
@@ -120,7 +120,7 @@ def p_type(p):
     '''type : INT
             | FLOAT
             | BOOL'''
-    p[0] = p[1]
+    p[0] = ('type', p[1])
 
 def p_statements(p):
     '''statements : statements statement
@@ -142,11 +142,11 @@ def p_statement(p):
     elif p[1] == 'read':
         p[0] = ('read', p[2])
     elif p[1] == 'if':
-        p[0] = ('if', p[2], p[5], p[9])
+        p[0] = ('if', p[2], ('then', p[5]), ('else', p[9]))
     elif p[1] == 'do':
-        p[0] = ('do', p[3], p[7])
+        p[0] = ('do', p[3], ('until', p[7]))
     elif p[1] == 'while':
-        p[0] = ('while', p[3], p[6])
+        p[0] = ('while', p[3], ('statements', p[6]))
     else:
         p[0] = ('assign', p[1], p[3])
 
@@ -184,13 +184,14 @@ def p_factor(p):
               | FALSE
               | LPAREN expression RPAREN'''
     if len(p) == 2:
-        p[0] = p[1]
+        p[0] = ('factor', p[1])
     else:
-        p[0] = p[2]
+        p[0] = ('group', p[2])
 
 def p_empty(p):
     'empty :'
     pass
+
 
 # Manejo de errores sintácticos
 def p_error(p):
@@ -229,13 +230,30 @@ def display_tokens(tokens):
     for token in tokens:
         token_tree.insert('', 'end', values=(token.type, token.value, token.lineno, token.lexpos))
 
+def display_tree_node(node, parent_id=""):
+    if isinstance(node, tuple):
+        node_type = str(node[0])
+        item_id = tree_view.insert(parent_id, 'end', text=node_type, open=False)
+        for child in node[1:]:
+            display_tree_node(child, item_id)
+    else:
+        tree_view.insert(parent_id, 'end', text=f"Value: {node}")
+
+def display_annotated_node(node, parent_id=""):
+    if isinstance(node, tuple):
+        node_type = str(node[0])
+        item_id = annotated_tree.insert(parent_id, 'end', text=f"Node: {node_type}", open=False)
+        for child in node[1:]:
+            display_annotated_node(child, item_id)
+    else:
+        annotated_tree.insert(parent_id, 'end', text=f"Leaf: {node}")
+
 def display_syntax_tree(syntax_tree):
     tree_view.delete(*tree_view.get_children())
     if isinstance(syntax_tree, str):  # Si hubo errores
         tree_view.insert('', 'end', text=syntax_tree)
     else:
         display_tree_node(syntax_tree, "")
-
 
 def display_annotated_tree(syntax_tree):
     annotated_tree.delete(*annotated_tree.get_children())
@@ -244,24 +262,6 @@ def display_annotated_tree(syntax_tree):
     else:
         display_annotated_node(syntax_tree, "")
 
-
-def display_tree_node(node, parent_id=""):
-    if isinstance(node, tuple):
-        node_type = str(node[0])
-        item_id = tree_view.insert(parent_id, 'end', text=node_type, open=True)  # Cambiado a True
-        for child in node[1:]:
-            display_tree_node(child, item_id)
-    else:
-        tree_view.insert(parent_id, 'end', text=f"Value: {node}", open=True)  # Cambiado a True
-
-def display_annotated_node(node, parent_id=""):
-    if isinstance(node, tuple):
-        node_type = str(node[0])
-        item_id = annotated_tree.insert(parent_id, 'end', text=f"Node: {node_type}", open=True)  # Cambiado a True
-        for child in node[1:]:
-            display_annotated_node(child, item_id)
-    else:
-        annotated_tree.insert(parent_id, 'end', text=f"Leaf: {node}", open=True)  # Cambiado a True
 
 def display_symbol_table(tokens):
     for item in symbol_tree.get_children():
