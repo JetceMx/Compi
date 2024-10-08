@@ -236,6 +236,7 @@ def display_syntax_tree(syntax_tree):
     else:
         display_tree_node(syntax_tree, "")
 
+
 def display_annotated_tree(syntax_tree):
     annotated_tree.delete(*annotated_tree.get_children())
     if isinstance(syntax_tree, str):  # Si hubo errores
@@ -243,23 +244,24 @@ def display_annotated_tree(syntax_tree):
     else:
         display_annotated_node(syntax_tree, "")
 
-def display_tree_node(node, parent_id):
+
+def display_tree_node(node, parent_id=""):
     if isinstance(node, tuple):
         node_type = str(node[0])
-        item_id = tree_view.insert(parent_id, 'end', text=node_type, open=True)
+        item_id = tree_view.insert(parent_id, 'end', text=node_type, open=True)  # Cambiado a True
         for child in node[1:]:
             display_tree_node(child, item_id)
     else:
-        tree_view.insert(parent_id, 'end', text=f"Value: {node}")
+        tree_view.insert(parent_id, 'end', text=f"Value: {node}", open=True)  # Cambiado a True
 
-def display_annotated_node(node, parent_id):
+def display_annotated_node(node, parent_id=""):
     if isinstance(node, tuple):
         node_type = str(node[0])
-        item_id = annotated_tree.insert(parent_id, 'end', text=f"Node: {node_type}", open=True)
+        item_id = annotated_tree.insert(parent_id, 'end', text=f"Node: {node_type}", open=True)  # Cambiado a True
         for child in node[1:]:
             display_annotated_node(child, item_id)
     else:
-        annotated_tree.insert(parent_id, 'end', text=f"Leaf: {node}")
+        annotated_tree.insert(parent_id, 'end', text=f"Leaf: {node}", open=True)  # Cambiado a True
 
 def display_symbol_table(tokens):
     for item in symbol_tree.get_children():
