@@ -8,7 +8,7 @@ reserved = {
     'program': 'PROGRAM',
     'if': 'IF',
     'else': 'ELSE',
-    'fi': 'FI',
+    'end': 'END',
     'do': 'DO',
     'until': 'UNTIL',
     'while': 'WHILE',
@@ -17,8 +17,8 @@ reserved = {
     'float': 'FLOAT',
     'int': 'INT',
     'bool': 'BOOL',
-    'and': 'AND',
-    'or': 'OR',
+    '&&': 'AND',
+    '||': 'OR',
     'true': 'TRUE',
     'false': 'FALSE',
     'then': 'THEN'
@@ -91,6 +91,9 @@ def t_error(t):
 # Crear el analizador léxico
 lexer = lex.lex()
 
+# Tabla de símbolos
+symbol_table = {}
+
 # Definir la gramática
 def p_program(p):
     'program : PROGRAM LBRACE declarations statements RBRACE'
@@ -105,16 +108,20 @@ def p_declarations(p):
         p[0] = p[1] + [p[2]]
 
 def p_declaration(p):
-    '''declaration : type ID declaration_list SEMI'''
-    p[0] = ('declaration', p[1], p[2], p[3])
+    '''declaration : type declaration_list SEMI'''
+    for var in p[2]:
+        symbol_table[var] = p[1]  # Agregar cada variable con su tipo a la tabla de símbolos
+    p[0] = ('declaration', p[1], p[2])
+
+
 
 def p_declaration_list(p):
-    '''declaration_list : COMMA ID declaration_list
-                        | empty'''
+    '''declaration_list : ID
+                        | declaration_list COMMA ID'''
     if len(p) == 2:
-        p[0] = []
+        p[0] = [p[1]]  # Una sola variable, devuelvo una lista con un solo elemento
     else:
-        p[0] = [p[2]] + p[3]
+        p[0] = p[1] + [p[3]]  # Agregar más variables a la lista
 
 def p_type(p):
     '''type : INT
@@ -133,7 +140,7 @@ def p_statements(p):
 def p_statement(p):
     '''statement : WRITE expression SEMI
                  | READ ID SEMI
-                 | IF expression THEN LBRACE statements RBRACE ELSE LBRACE statements RBRACE FI
+                 | IF expression THEN LBRACE statements RBRACE ELSE LBRACE statements RBRACE END
                  | DO LBRACE statements RBRACE UNTIL LPAREN expression RPAREN SEMI
                  | WHILE LPAREN expression RPAREN LBRACE statements RBRACE
                  | ID ASSIGN expression SEMI'''
@@ -148,7 +155,12 @@ def p_statement(p):
     elif p[1] == 'while':
         p[0] = ('while', p[3], ('statements', p[6]))
     else:
+        # Verificar si la variable a la izquierda ya fue declarada
+        if p[1] not in symbol_table:
+            error_msg = f"Error: La variable '{p[1]}' no ha sido declarada en la línea {p.lineno(1)}\n"
+            error_display.insert(tk.END, error_msg)
         p[0] = ('assign', p[1], p[3])
+
 
 def p_expression(p):
     '''expression : expression PLUS term
@@ -172,10 +184,20 @@ def p_term(p):
             | term TIMES factor
             | term DIVIDE factor
             | factor'''
-    if len(p) == 4:
-        p[0] = ('binop', p[2], p[1], p[3])
+    
+    if len(p) == 4:  # Esto significa que estamos en una operación binaria
+        if p[2] == '/':  # Si la operación es una división
+            if p[3] == 0:  # Si el divisor es 0
+                error_msg = f"Error semántico: División entre 0 en la línea {p.lineno(2)}\n"
+                error_display.insert(tk.END, error_msg)  # Insertar el error en el cuadro de errores
+                p[0] = None  # Opcional: evita continuar la operación
+            else:
+                p[0] = ('binop', p[2], p[1], p[3])  # Realizar la operación normalmente si no hay división entre 0
+        else:
+            p[0] = ('binop', p[2], p[1], p[3])
     else:
         p[0] = p[1]
+
 
 def p_factor(p):
     '''factor : NUMBER
@@ -184,14 +206,18 @@ def p_factor(p):
               | FALSE
               | LPAREN expression RPAREN'''
     if len(p) == 2:
+        if isinstance(p[1], str):  # Si es un identificador
+            if p[1] not in symbol_table:
+                error_msg = f"Error: La variable '{p[1]}' no ha sido declarada en la línea {p.lineno(1)}\n"
+                error_display.insert(tk.END, error_msg)
         p[0] = ('factor', p[1])
     else:
         p[0] = ('group', p[2])
 
+
 def p_empty(p):
     'empty :'
     pass
-
 
 # Manejo de errores sintácticos
 def p_error(p):
@@ -205,8 +231,7 @@ def p_error(p):
 # Crear el analizador sintáctico
 parser = yacc.yacc()
 
-# Tabla de símbolos
-symbol_table = []
+
 
 # Funciones de la interfaz gráfica
 def analyze():
@@ -220,9 +245,11 @@ def analyze():
     display_tokens(tokens)
     
     result = parser.parse(input_text, lexer=lexer)
-    display_symbol_table(tokens)  # Mostrar la tabla de símbolos incluso si hay errores
-    display_syntax_tree(result if result else 'Errores en el análisis')  # Mostrar árbol aunque haya errores
-    display_annotated_tree(result)  # Mostrar el árbol anotado
+    
+    # Mostrar la tabla de símbolos, árbol sintáctico, y errores
+    display_symbol_table(tokens)
+    display_syntax_tree(result if result else 'Errores en el análisis')
+    display_annotated_tree(result)
 
 def display_tokens(tokens):
     for item in token_tree.get_children():
@@ -316,7 +343,7 @@ analyze_button = tk.Button(code_frame, text="Analizar", command=analyze)
 analyze_button.pack()
 
 # Crear área de texto para los errores, justo debajo del botón "Analizar"
-error_display = scrolledtext.ScrolledText(code_frame, height=10)
+error_display = scrolledtext.ScrolledText(code_frame, height=10, wrap=tk.WORD)
 error_display.pack(fill='both', expand=True, padx=10, pady=10)
 
 # Tabla de tokens
@@ -329,6 +356,9 @@ token_tree.pack(fill='both', expand=True)
 
 # Árbol sintáctico
 tree_view = ttk.Treeview(tree_frame)
+scrollbar_tree = ttk.Scrollbar(tree_frame, orient="vertical", command=tree_view.yview)
+tree_view.configure(yscrollcommand=scrollbar_tree.set)
+scrollbar_tree.pack(side=tk.RIGHT, fill=tk.Y)
 tree_view.pack(fill='both', expand=True)
 
 # Árbol con anotaciones, colocado a la derecha
@@ -343,6 +373,9 @@ symbol_tree = ttk.Treeview(symbol_frame, columns=("Nombre", "Tipo", "Línea"), s
 symbol_tree.heading("Nombre", text="Nombre")
 symbol_tree.heading("Tipo", text="Tipo")
 symbol_tree.heading("Línea", text="Línea")
+scrollbar_symbol = ttk.Scrollbar(symbol_frame, orient="vertical", command=symbol_tree.yview)
+symbol_tree.configure(yscrollcommand=scrollbar_symbol.set)
+scrollbar_symbol.pack(side=tk.RIGHT, fill=tk.Y)
 symbol_tree.pack(fill='both', expand=True)
 
 # Crear menú
