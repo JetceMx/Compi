@@ -97,7 +97,11 @@ symbol_table = {}
 # Definir la gramática
 def p_program(p):
     'program : PROGRAM LBRACE declarations statements RBRACE'
-    p[0] = ('program', ('declarations', p[3]), ('statements', p[4]))
+    p[0] = ('program', 
+            ('declarations', p[3]) if p[3] else ('declarations', []),
+            ('statements', p[4]) if p[4] else ('statements', [])
+           )
+    print("Program node:", p[0])  # Impresión de depuración
 
 def p_declarations(p):
     '''declarations : declarations declaration
@@ -109,8 +113,6 @@ def p_declarations(p):
 
 def p_declaration(p):
     '''declaration : type declaration_list SEMI'''
-    for var in p[2]:
-        symbol_table[var] = p[1]  # Agregar cada variable con su tipo a la tabla de símbolos
     p[0] = ('declaration', p[1], p[2])
 
 
@@ -147,20 +149,15 @@ def p_statement(p):
     if p[1] == 'write':
         p[0] = ('write', p[2])
     elif p[1] == 'read':
-        p[0] = ('read', p[2])
+        p[0] = ('read', ('id', p[2]))
     elif p[1] == 'if':
         p[0] = ('if', p[2], ('then', p[5]), ('else', p[9]))
     elif p[1] == 'do':
-        p[0] = ('do', p[3], ('until', p[7]))
+        p[0] = ('do_until', ('body', p[3]), ('condition', p[7]))
     elif p[1] == 'while':
-        p[0] = ('while', p[3], ('statements', p[6]))
+        p[0] = ('while', ('condition', p[3]), ('body', p[6]))
     else:
-        # Verificar si la variable a la izquierda ya fue declarada
-        if p[1] not in symbol_table:
-            error_msg = f"Error: La variable '{p[1]}' no ha sido declarada en la línea {p.lineno(1)}\n"
-            error_display.insert(tk.END, error_msg)
-        p[0] = ('assign', p[1], p[3])
-
+        p[0] = ('assign', ('id', p[1]), p[3])
 
 def p_expression(p):
     '''expression : expression PLUS term
@@ -260,9 +257,17 @@ def display_tokens(tokens):
 def display_tree_node(node, parent_id=""):
     if isinstance(node, tuple):
         node_type = str(node[0])
-        item_id = tree_view.insert(parent_id, 'end', text=node_type, open=False)
+        if len(node) > 1:
+            node_value = str(node[1]) if len(node) == 2 else f"({len(node) - 1} children)"
+            text = f"{node_type}: {node_value}"
+        else:
+            text = node_type
+        item_id = tree_view.insert(parent_id, 'end', text=text, open=True)
         for child in node[1:]:
             display_tree_node(child, item_id)
+    elif isinstance(node, list):
+        for item in node:
+            display_tree_node(item, parent_id)
     else:
         tree_view.insert(parent_id, 'end', text=f"Value: {node}")
 
