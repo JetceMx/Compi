@@ -409,7 +409,7 @@ def display_tree_node(node, parent_id=""):
         except Exception as e:
             text = f"Error in {node_type}: {str(e)}"
         
-        item_id = tree_view.insert(parent_id, 'end', text=text, open=True)
+        item_id = annotated_tree.insert(parent_id, 'end', text=text, open=True)
         for child in node[1:]:
             if not callable(child):  # Skip lambda functions
                 display_tree_node(child, item_id)
@@ -417,7 +417,7 @@ def display_tree_node(node, parent_id=""):
         for item in node:
             display_tree_node(item, parent_id)
     else:
-        tree_view.insert(parent_id, 'end', text=f"Value: {node}")
+        annotated_tree.insert(parent_id, 'end', text=f"Value: {node}")
 
 def display_annotated_node(node, parent_id=""):
     if isinstance(node, tuple):
@@ -436,11 +436,11 @@ def display_syntax_tree(syntax_tree):
         display_tree_node(syntax_tree, "")
 
 def display_annotated_tree(syntax_tree):
-    annotated_tree.delete(*annotated_tree.get_children())
+    tree_view.delete(*tree_view.get_children())
     if isinstance(syntax_tree, str):  # Si hubo errores
-        annotated_tree.insert('', 'end', text=syntax_tree)
+        tree_view.insert('', 'end', text=syntax_tree)
     else:
-        display_annotated_node(syntax_tree, "")
+        display_tree_node(syntax_tree, "")
 
 
 def display_symbol_table(tokens):
