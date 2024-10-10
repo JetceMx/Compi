@@ -236,12 +236,22 @@ def p_error(p):
         error_display.insert(tk.END, error_msg)
         
 def evaluate(node):
+    def format_value(value):
+        if value is None:
+            return "None"
+        if isinstance(value, int):
+            return str(value)
+        elif isinstance(value, float):
+            return f"{value:.2f}" if value % 1 != 0 else str(int(value))
+        return str(value)
+
     if isinstance(node, tuple):
         if node[0] == 'number':
-            return node[1], str(node[1])
+            return node[1], format_value(node[1])
         elif node[0] == 'id':
             if node[1] in symbol_table:
-                return symbol_table[node[1]]['value'], f"{node[1]}:{symbol_table[node[1]]['type']}"
+                value = symbol_table[node[1]]['value']
+                return value, f"{node[1]}:{symbol_table[node[1]]['type']}={format_value(value)}"
             else:
                 semantic_error(f"Variable '{node[1]}' no definida", node[1])
                 return None, f"Error: {node[1]} no definida"
@@ -252,22 +262,33 @@ def evaluate(node):
             right_val, right_str = evaluate(node[3])
             if left_val is None or right_val is None:
                 return None, f"Error en {left_str} {node[1]} {right_str}"
-            if node[1] == '+':
-                return left_val + right_val, f"({left_str} + {right_str} = {left_val + right_val})"
-            elif node[1] == '-':
-                return left_val - right_val, f"({left_str} - {right_str} = {left_val - right_val})"
-            elif node[1] == '*':
-                return left_val * right_val, f"({left_str} * {right_str} = {left_val * right_val})"
-            elif node[1] == '/':
-                if right_val == 0:
-                    semantic_error("División por cero", node[2])
-                    return None, f"Error: División por cero ({left_str} / {right_str})"
-                return left_val / right_val, f"({left_str} / {right_str} = {left_val / right_val})"
-            elif node[1] == '^':
-                return left_val ** right_val, f"({left_str} ^ {right_str} = {left_val ** right_val})"
+            
+            try:
+                if node[1] == '+':
+                    result = left_val + right_val
+                elif node[1] == '-':
+                    result = left_val - right_val
+                elif node[1] == '*':
+                    result = left_val * right_val
+                elif node[1] == '/':
+                    if right_val == 0:
+                        semantic_error("División por cero", node[2])
+                        return None, f"Error: División por cero ({left_str} / {right_str})"
+                    result = left_val / right_val
+                elif node[1] == '^':
+                    result = left_val ** right_val
+                else:
+                    return None, f"Operador desconocido: {node[1]}"
+
+                return result, f"({left_str} {node[1]} {right_str} = {format_value(result)})"
+            except Exception as e:
+                return None, f"Error en operación {node[1]}: {str(e)}"
         elif node[0] == 'unary_minus':
             val, str_rep = evaluate(node[1])
-            return -val, f"(-{str_rep} = {-val})"
+            if val is None:
+                return None, f"Error en unary_minus: {str_rep}"
+            result = -val
+            return result, f"(-{str_rep} = {format_value(result)})"
         elif node[0] == 'group':
             return evaluate(node[1])
         elif node[0] == 'program':
@@ -293,24 +314,34 @@ def evaluate(node):
             value, value_str = evaluate(node[2])
             var_name = node[1][1]
             if var_name in symbol_table:
-                symbol_table[var_name]['value'] = value
-                return value, f"{var_name}:{symbol_table[var_name]['type']} = {value_str}"
+                var_type = symbol_table[var_name]['type']
+                try:
+                    if value is None:
+                        return None, f"Error: No se puede asignar None a {var_name}"
+                    if var_type == 'int':
+                        if isinstance(value, float):
+                            semantic_error(f"Advertencia: Conversión de float a int para {var_name}", node)
+                        value = int(value)
+                    elif var_type == 'float':
+                        value = float(value)
+                    symbol_table[var_name]['value'] = value
+                    return value, f"{var_name}:{var_type}={format_value(value)}"
+                except ValueError as e:
+                    return None, f"Error: No se puede convertir '{value}' a {var_type}: {str(e)}"
             else:
                 semantic_error(f"Variable '{var_name}' no definida", node[1])
                 return None, f"Error: {var_name} no definida"
         elif node[0] == 'write':
             value, value_str = evaluate(node[1])
-            print(value)  # O usa tu propia función de salida
+            print(format_value(value))  # Usa la función format_value para la salida
             return value, f"write({value_str})"
-    return None, "Nodo no evaluable"
+    return None, f"Nodo no evaluable: {node}"
 
 def semantic_error(message, node):
-    if hasattr(node, 'lineno'):
-        lineno = node.lineno
-    else:
-        lineno = 'desconocida'
-    error_msg = f"Error semántico en la línea {lineno}: {message}\n"
+    line = node.lineno if hasattr(node, 'lineno') else 'unknown'
+    error_msg = f"Error semántico en la línea {line}: {message}\n"
     error_display.insert(tk.END, error_msg)
+    print(error_msg)  # También imprimir en la consola para debugging
     
 
 # Crear el analizador sintáctico
@@ -352,38 +383,31 @@ def display_tokens(tokens):
 def display_tree_node(node, parent_id=""):
     if isinstance(node, tuple):
         node_type = str(node[0])
-        if node_type == 'binop':
-            _, result_str = evaluate(node)
-            text = f"Operation: {result_str}"
-        elif node_type in ['number', 'boolean']:
-            _, result_str = evaluate(node)
-            text = f"{node_type.capitalize()}: {result_str}"
-        elif node_type == 'id':
-            var_name = node[1]
-            if var_name in symbol_table:
-                var_type = symbol_table[var_name]['type']
-                var_value = symbol_table[var_name]['value']
-                text = f"ID: {var_name} (Type: {var_type}, Value: {var_value})"
+        try:
+            if node_type == 'binop':
+                _, result_str = evaluate(node)
+                text = f"Operation: {result_str}"
+            elif node_type in ['number', 'boolean']:
+                _, result_str = evaluate(node)
+                text = f"{node_type.capitalize()}: {result_str}"
+            elif node_type == 'id':
+                _, result_str = evaluate(node)
+                text = f"ID: {result_str}"
+            elif node_type == 'unary_minus':
+                _, result_str = evaluate(node)
+                text = f"Unary minus: {result_str}"
+            elif node_type == 'assign':
+                _, result_str = evaluate(node)
+                text = f"Assign: {result_str}"
+            elif node_type == 'declaration':
+                var_type = node[1][1]
+                var_names = ', '.join(node[2])
+                text = f"Declaration: {var_type} {var_names}"
             else:
-                text = f"ID: {var_name} (Undefined)"
-        elif node_type == 'unary_minus':
-            _, result_str = evaluate(node)
-            text = f"Unary minus: {result_str}"
-        elif node_type == 'assign':
-            var_name = node[1][1]
-            if var_name in symbol_table:
-                var_type = symbol_table[var_name]['type']
-                _, value_str = evaluate(node[2])
-                text = f"Assign: {var_name} (Type: {var_type}) = {value_str}"
-            else:
-                text = f"Assign: {var_name} (Undefined) = {evaluate(node[2])[1]}"
-        elif node_type == 'declaration':
-            var_type = node[1][1]
-            var_names = ', '.join(node[2])
-            text = f"Declaration: {var_type} {var_names}"
-        else:
-            _, result_str = evaluate(node)
-            text = f"{node_type}: {result_str}"
+                _, result_str = evaluate(node)
+                text = f"{node_type}: {result_str}"
+        except Exception as e:
+            text = f"Error in {node_type}: {str(e)}"
         
         item_id = tree_view.insert(parent_id, 'end', text=text, open=True)
         for child in node[1:]:
