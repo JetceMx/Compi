@@ -241,7 +241,7 @@ def evaluate(node):
             return node[1], str(node[1])
         elif node[0] == 'id':
             if node[1] in symbol_table:
-                return symbol_table[node[1]]['value'], node[1]
+                return symbol_table[node[1]]['value'], f"{node[1]}:{symbol_table[node[1]]['type']}"
             else:
                 semantic_error(f"Variable '{node[1]}' no definida", node[1])
                 return None, f"Error: {node[1]} no definida"
@@ -281,7 +281,7 @@ def evaluate(node):
             var_type = node[1][1]
             for var in node[2]:
                 symbol_table[var] = {'type': var_type, 'value': None}
-            return None, f"Variables declaradas: {', '.join(node[2])}"
+            return None, f"Variables declaradas: {', '.join(node[2])} (Tipo: {var_type})"
         elif node[0] == 'statements':
             results = []
             for stmt in node[1]:
@@ -291,12 +291,13 @@ def evaluate(node):
             return None, "; ".join(results)
         elif node[0] == 'assign':
             value, value_str = evaluate(node[2])
-            if node[1][1] in symbol_table:
-                symbol_table[node[1][1]]['value'] = value
-                return value, f"{node[1][1]} = {value_str}"
+            var_name = node[1][1]
+            if var_name in symbol_table:
+                symbol_table[var_name]['value'] = value
+                return value, f"{var_name}:{symbol_table[var_name]['type']} = {value_str}"
             else:
-                semantic_error(f"Variable '{node[1][1]}' no definida", node[1])
-                return None, f"Error: {node[1][1]} no definida"
+                semantic_error(f"Variable '{var_name}' no definida", node[1])
+                return None, f"Error: {var_name} no definida"
         elif node[0] == 'write':
             value, value_str = evaluate(node[1])
             print(value)  # O usa tu propia función de salida
@@ -354,15 +355,32 @@ def display_tree_node(node, parent_id=""):
         if node_type == 'binop':
             _, result_str = evaluate(node)
             text = f"Operation: {result_str}"
-        elif node_type in ['number', 'boolean', 'id']:
+        elif node_type in ['number', 'boolean']:
             _, result_str = evaluate(node)
             text = f"{node_type.capitalize()}: {result_str}"
+        elif node_type == 'id':
+            var_name = node[1]
+            if var_name in symbol_table:
+                var_type = symbol_table[var_name]['type']
+                var_value = symbol_table[var_name]['value']
+                text = f"ID: {var_name} (Type: {var_type}, Value: {var_value})"
+            else:
+                text = f"ID: {var_name} (Undefined)"
         elif node_type == 'unary_minus':
             _, result_str = evaluate(node)
             text = f"Unary minus: {result_str}"
         elif node_type == 'assign':
-            _, result_str = evaluate(node)
-            text = f"Assign: {result_str}"
+            var_name = node[1][1]
+            if var_name in symbol_table:
+                var_type = symbol_table[var_name]['type']
+                _, value_str = evaluate(node[2])
+                text = f"Assign: {var_name} (Type: {var_type}) = {value_str}"
+            else:
+                text = f"Assign: {var_name} (Undefined) = {evaluate(node[2])[1]}"
+        elif node_type == 'declaration':
+            var_type = node[1][1]
+            var_names = ', '.join(node[2])
+            text = f"Declaration: {var_type} {var_names}"
         else:
             _, result_str = evaluate(node)
             text = f"{node_type}: {result_str}"
