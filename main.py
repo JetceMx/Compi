@@ -113,6 +113,9 @@ def p_declarations(p):
 
 def p_declaration(p):
     '''declaration : type declaration_list SEMI'''
+    for var in p[2]:
+        symbol_table[var] = p[1]  # Agregar cada variable con su tipo a la tabla de símbolos
+
     p[0] = ('declaration', p[1], p[2])
 
 
@@ -157,6 +160,10 @@ def p_statement(p):
     elif p[1] == 'while':
         p[0] = ('while', ('condition', p[3]), ('body', p[6]))
     else:
+        # Verificar si la variable a la izquierda ya fue declarada
+        if p[1] not in symbol_table:
+            error_msg = f"Error: La variable '{p[1]}' no ha sido declarada en la línea {p.lineno(1)}\n"
+            error_display.insert(tk.END, error_msg)
         p[0] = ('assign', ('id', p[1]), p[3])
 
 def p_expression(p):
@@ -175,23 +182,21 @@ def p_expression(p):
         p[0] = ('binop', p[2], p[1], p[3])
     else:
         p[0] = p[1]
+        
 
 def p_term(p):
-    '''term : term EXPONENT factor
-            | term TIMES factor
+    '''term : term TIMES factor
             | term DIVIDE factor
+            | term EXPONENT factor
             | factor'''
-    
-    if len(p) == 4:  # Esto significa que estamos en una operación binaria
-        if p[2] == '/':  # Si la operación es una división
-            if p[3] == 0:  # Si el divisor es 0
-                error_msg = f"Error semántico: División entre 0 en la línea {p.lineno(2)}\n"
-                error_display.insert(tk.END, error_msg)  # Insertar el error en el cuadro de errores
-                p[0] = None  # Opcional: evita continuar la operación
-            else:
-                p[0] = ('binop', p[2], p[1], p[3])  # Realizar la operación normalmente si no hay división entre 0
-        else:
-            p[0] = ('binop', p[2], p[1], p[3])
+    if len(p) == 4:
+        if p[2] == '/':  # División
+            # Verificar división por cero en tiempo de ejecución
+            p[0] = ('binop', p[2], p[1], p[3], lambda x, y: None if y == 0 else x / y)
+        elif p[2] == '*':
+            p[0] = ('binop', p[2], p[1], p[3], lambda x, y: x * y)
+        elif p[2] == '^':
+            p[0] = ('binop', p[2], p[1], p[3], lambda x, y: x ** y)
     else:
         p[0] = p[1]
 
@@ -203,13 +208,18 @@ def p_factor(p):
               | FALSE
               | LPAREN expression RPAREN'''
     if len(p) == 2:
-        if isinstance(p[1], str):  # Si es un identificador
-            if p[1] not in symbol_table:
-                error_msg = f"Error: La variable '{p[1]}' no ha sido declarada en la línea {p.lineno(1)}\n"
-                error_display.insert(tk.END, error_msg)
-        p[0] = ('factor', p[1])
+        if isinstance(p[1], (int, float)):
+            p[0] = ('number', p[1])
+        elif p[1] in ['true', 'false']:
+            p[0] = ('boolean', p[1])
+        else:
+            p[0] = ('id', p[1])
+    elif len(p) == 3:  # Caso para el menos unario
+        p[0] = ('unary_minus', p[2])
     else:
         p[0] = ('group', p[2])
+        
+
 
 
 def p_empty(p):
@@ -224,6 +234,83 @@ def p_error(p):
     else:
         error_msg = "Error sintáctico en el EOF\n"
         error_display.insert(tk.END, error_msg)
+        
+def evaluate(node):
+    if isinstance(node, tuple):
+        if node[0] == 'number':
+            return node[1], str(node[1])
+        elif node[0] == 'id':
+            if node[1] in symbol_table:
+                return symbol_table[node[1]]['value'], node[1]
+            else:
+                semantic_error(f"Variable '{node[1]}' no definida", node[1])
+                return None, f"Error: {node[1]} no definida"
+        elif node[0] == 'boolean':
+            return node[1] == 'true', str(node[1])
+        elif node[0] == 'binop':
+            left_val, left_str = evaluate(node[2])
+            right_val, right_str = evaluate(node[3])
+            if left_val is None or right_val is None:
+                return None, f"Error en {left_str} {node[1]} {right_str}"
+            if node[1] == '+':
+                return left_val + right_val, f"({left_str} + {right_str} = {left_val + right_val})"
+            elif node[1] == '-':
+                return left_val - right_val, f"({left_str} - {right_str} = {left_val - right_val})"
+            elif node[1] == '*':
+                return left_val * right_val, f"({left_str} * {right_str} = {left_val * right_val})"
+            elif node[1] == '/':
+                if right_val == 0:
+                    semantic_error("División por cero", node[2])
+                    return None, f"Error: División por cero ({left_str} / {right_str})"
+                return left_val / right_val, f"({left_str} / {right_str} = {left_val / right_val})"
+            elif node[1] == '^':
+                return left_val ** right_val, f"({left_str} ^ {right_str} = {left_val ** right_val})"
+        elif node[0] == 'unary_minus':
+            val, str_rep = evaluate(node[1])
+            return -val, f"(-{str_rep} = {-val})"
+        elif node[0] == 'group':
+            return evaluate(node[1])
+        elif node[0] == 'program':
+            evaluate(node[1])  # declaraciones
+            return evaluate(node[2])  # sentencias
+        elif node[0] == 'declarations':
+            for decl in node[1]:
+                evaluate(decl)
+            return None, "Declaraciones procesadas"
+        elif node[0] == 'declaration':
+            var_type = node[1][1]
+            for var in node[2]:
+                symbol_table[var] = {'type': var_type, 'value': None}
+            return None, f"Variables declaradas: {', '.join(node[2])}"
+        elif node[0] == 'statements':
+            results = []
+            for stmt in node[1]:
+                result = evaluate(stmt)
+                if result[0] is not None:
+                    results.append(result[1])
+            return None, "; ".join(results)
+        elif node[0] == 'assign':
+            value, value_str = evaluate(node[2])
+            if node[1][1] in symbol_table:
+                symbol_table[node[1][1]]['value'] = value
+                return value, f"{node[1][1]} = {value_str}"
+            else:
+                semantic_error(f"Variable '{node[1][1]}' no definida", node[1])
+                return None, f"Error: {node[1][1]} no definida"
+        elif node[0] == 'write':
+            value, value_str = evaluate(node[1])
+            print(value)  # O usa tu propia función de salida
+            return value, f"write({value_str})"
+    return None, "Nodo no evaluable"
+
+def semantic_error(message, node):
+    if hasattr(node, 'lineno'):
+        lineno = node.lineno
+    else:
+        lineno = 'desconocida'
+    error_msg = f"Error semántico en la línea {lineno}: {message}\n"
+    error_display.insert(tk.END, error_msg)
+    
 
 # Crear el analizador sintáctico
 parser = yacc.yacc()
@@ -236,6 +323,8 @@ def analyze():
     lexer.lineno = 1
     error_display.delete('1.0', tk.END)
     
+    symbol_table.clear()
+    
     input_text = text_area.get("1.0", tk.END)
     lexer.input(input_text)
     tokens = list(lexer)
@@ -243,10 +332,15 @@ def analyze():
     
     result = parser.parse(input_text, lexer=lexer)
     
+    if result:
+        _, evaluation_result = evaluate(result)
+        print("Resultado de la evaluación:", evaluation_result)
+    
     # Mostrar la tabla de símbolos, árbol sintáctico, y errores
     display_symbol_table(tokens)
     display_syntax_tree(result if result else 'Errores en el análisis')
     display_annotated_tree(result)
+    
 
 def display_tokens(tokens):
     for item in token_tree.get_children():
@@ -257,14 +351,26 @@ def display_tokens(tokens):
 def display_tree_node(node, parent_id=""):
     if isinstance(node, tuple):
         node_type = str(node[0])
-        if len(node) > 1:
-            node_value = str(node[1]) if len(node) == 2 else f"({len(node) - 1} children)"
-            text = f"{node_type}: {node_value}"
+        if node_type == 'binop':
+            _, result_str = evaluate(node)
+            text = f"Operation: {result_str}"
+        elif node_type in ['number', 'boolean', 'id']:
+            _, result_str = evaluate(node)
+            text = f"{node_type.capitalize()}: {result_str}"
+        elif node_type == 'unary_minus':
+            _, result_str = evaluate(node)
+            text = f"Unary minus: {result_str}"
+        elif node_type == 'assign':
+            _, result_str = evaluate(node)
+            text = f"Assign: {result_str}"
         else:
-            text = node_type
+            _, result_str = evaluate(node)
+            text = f"{node_type}: {result_str}"
+        
         item_id = tree_view.insert(parent_id, 'end', text=text, open=True)
         for child in node[1:]:
-            display_tree_node(child, item_id)
+            if not callable(child):  # Skip lambda functions
+                display_tree_node(child, item_id)
     elif isinstance(node, list):
         for item in node:
             display_tree_node(item, parent_id)

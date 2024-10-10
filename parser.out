@@ -31,9 +31,9 @@ Rule 25    expression -> expression NEQ term
 Rule 26    expression -> expression AND term
 Rule 27    expression -> expression OR term
 Rule 28    expression -> term
-Rule 29    term -> term EXPONENT factor
-Rule 30    term -> term TIMES factor
-Rule 31    term -> term DIVIDE factor
+Rule 29    term -> term TIMES factor
+Rule 30    term -> term DIVIDE factor
+Rule 31    term -> term EXPONENT factor
 Rule 32    term -> factor
 Rule 33    factor -> NUMBER
 Rule 34    factor -> ID
@@ -48,12 +48,12 @@ AND                  : 26
 ASSIGN               : 17
 BOOL                 : 9
 COMMA                : 6
-DIVIDE               : 31
+DIVIDE               : 30
 DO                   : 15
 ELSE                 : 14
 END                  : 14
 EQ                   : 24
-EXPONENT             : 29
+EXPONENT             : 31
 FALSE                : 36
 FLOAT                : 8
 GE                   : 23
@@ -76,7 +76,7 @@ READ                 : 13
 RPAREN               : 15 16 37
 SEMI                 : 4 12 13 15 17
 THEN                 : 14
-TIMES                : 30
+TIMES                : 29
 TRUE                 : 35
 UNTIL                : 15
 WHILE                : 16
@@ -301,9 +301,9 @@ state 15
     (26) expression -> . expression AND term
     (27) expression -> . expression OR term
     (28) expression -> . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -349,9 +349,9 @@ state 18
     (26) expression -> . expression AND term
     (27) expression -> . expression OR term
     (28) expression -> . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -430,9 +430,9 @@ state 23
 state 24
 
     (28) expression -> term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 28 (expression -> term .)
     PLUS            reduce using rule 28 (expression -> term .)
@@ -447,18 +447,18 @@ state 24
     OR              reduce using rule 28 (expression -> term .)
     THEN            reduce using rule 28 (expression -> term .)
     RPAREN          reduce using rule 28 (expression -> term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 25
 
     (32) term -> factor .
 
-    EXPONENT        reduce using rule 32 (term -> factor .)
     TIMES           reduce using rule 32 (term -> factor .)
     DIVIDE          reduce using rule 32 (term -> factor .)
+    EXPONENT        reduce using rule 32 (term -> factor .)
     SEMI            reduce using rule 32 (term -> factor .)
     PLUS            reduce using rule 32 (term -> factor .)
     MINUS           reduce using rule 32 (term -> factor .)
@@ -478,9 +478,9 @@ state 26
 
     (33) factor -> NUMBER .
 
-    EXPONENT        reduce using rule 33 (factor -> NUMBER .)
     TIMES           reduce using rule 33 (factor -> NUMBER .)
     DIVIDE          reduce using rule 33 (factor -> NUMBER .)
+    EXPONENT        reduce using rule 33 (factor -> NUMBER .)
     SEMI            reduce using rule 33 (factor -> NUMBER .)
     PLUS            reduce using rule 33 (factor -> NUMBER .)
     MINUS           reduce using rule 33 (factor -> NUMBER .)
@@ -500,9 +500,9 @@ state 27
 
     (34) factor -> ID .
 
-    EXPONENT        reduce using rule 34 (factor -> ID .)
     TIMES           reduce using rule 34 (factor -> ID .)
     DIVIDE          reduce using rule 34 (factor -> ID .)
+    EXPONENT        reduce using rule 34 (factor -> ID .)
     SEMI            reduce using rule 34 (factor -> ID .)
     PLUS            reduce using rule 34 (factor -> ID .)
     MINUS           reduce using rule 34 (factor -> ID .)
@@ -522,9 +522,9 @@ state 28
 
     (35) factor -> TRUE .
 
-    EXPONENT        reduce using rule 35 (factor -> TRUE .)
     TIMES           reduce using rule 35 (factor -> TRUE .)
     DIVIDE          reduce using rule 35 (factor -> TRUE .)
+    EXPONENT        reduce using rule 35 (factor -> TRUE .)
     SEMI            reduce using rule 35 (factor -> TRUE .)
     PLUS            reduce using rule 35 (factor -> TRUE .)
     MINUS           reduce using rule 35 (factor -> TRUE .)
@@ -544,9 +544,9 @@ state 29
 
     (36) factor -> FALSE .
 
-    EXPONENT        reduce using rule 36 (factor -> FALSE .)
     TIMES           reduce using rule 36 (factor -> FALSE .)
     DIVIDE          reduce using rule 36 (factor -> FALSE .)
+    EXPONENT        reduce using rule 36 (factor -> FALSE .)
     SEMI            reduce using rule 36 (factor -> FALSE .)
     PLUS            reduce using rule 36 (factor -> FALSE .)
     MINUS           reduce using rule 36 (factor -> FALSE .)
@@ -576,9 +576,9 @@ state 30
     (26) expression -> . expression AND term
     (27) expression -> . expression OR term
     (28) expression -> . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -617,9 +617,9 @@ state 32
     (26) expression -> . expression AND term
     (27) expression -> . expression OR term
     (28) expression -> . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -696,9 +696,9 @@ state 35
     (26) expression -> . expression AND term
     (27) expression -> . expression OR term
     (28) expression -> . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -755,9 +755,9 @@ state 38
 state 39
 
     (18) expression -> expression PLUS . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -777,9 +777,9 @@ state 39
 state 40
 
     (19) expression -> expression MINUS . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -799,9 +799,9 @@ state 40
 state 41
 
     (20) expression -> expression LT . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -821,9 +821,9 @@ state 41
 state 42
 
     (21) expression -> expression LE . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -843,9 +843,9 @@ state 42
 state 43
 
     (22) expression -> expression GT . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -865,9 +865,9 @@ state 43
 state 44
 
     (23) expression -> expression GE . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -887,9 +887,9 @@ state 44
 state 45
 
     (24) expression -> expression EQ . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -909,9 +909,9 @@ state 45
 state 46
 
     (25) expression -> expression NEQ . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -931,9 +931,9 @@ state 46
 state 47
 
     (26) expression -> expression AND . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -953,9 +953,9 @@ state 47
 state 48
 
     (27) expression -> expression OR . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
@@ -974,7 +974,7 @@ state 48
 
 state 49
 
-    (29) term -> term EXPONENT . factor
+    (29) term -> term TIMES . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
     (35) factor -> . TRUE
@@ -991,7 +991,7 @@ state 49
 
 state 50
 
-    (30) term -> term TIMES . factor
+    (30) term -> term DIVIDE . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
     (35) factor -> . TRUE
@@ -1008,7 +1008,7 @@ state 50
 
 state 51
 
-    (31) term -> term DIVIDE . factor
+    (31) term -> term EXPONENT . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
     (35) factor -> . TRUE
@@ -1156,9 +1156,9 @@ state 58
 state 59
 
     (18) expression -> expression PLUS term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 18 (expression -> expression PLUS term .)
     PLUS            reduce using rule 18 (expression -> expression PLUS term .)
@@ -1173,17 +1173,17 @@ state 59
     OR              reduce using rule 18 (expression -> expression PLUS term .)
     THEN            reduce using rule 18 (expression -> expression PLUS term .)
     RPAREN          reduce using rule 18 (expression -> expression PLUS term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 60
 
     (19) expression -> expression MINUS term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 19 (expression -> expression MINUS term .)
     PLUS            reduce using rule 19 (expression -> expression MINUS term .)
@@ -1198,17 +1198,17 @@ state 60
     OR              reduce using rule 19 (expression -> expression MINUS term .)
     THEN            reduce using rule 19 (expression -> expression MINUS term .)
     RPAREN          reduce using rule 19 (expression -> expression MINUS term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 61
 
     (20) expression -> expression LT term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 20 (expression -> expression LT term .)
     PLUS            reduce using rule 20 (expression -> expression LT term .)
@@ -1223,17 +1223,17 @@ state 61
     OR              reduce using rule 20 (expression -> expression LT term .)
     THEN            reduce using rule 20 (expression -> expression LT term .)
     RPAREN          reduce using rule 20 (expression -> expression LT term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 62
 
     (21) expression -> expression LE term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 21 (expression -> expression LE term .)
     PLUS            reduce using rule 21 (expression -> expression LE term .)
@@ -1248,17 +1248,17 @@ state 62
     OR              reduce using rule 21 (expression -> expression LE term .)
     THEN            reduce using rule 21 (expression -> expression LE term .)
     RPAREN          reduce using rule 21 (expression -> expression LE term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 63
 
     (22) expression -> expression GT term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 22 (expression -> expression GT term .)
     PLUS            reduce using rule 22 (expression -> expression GT term .)
@@ -1273,17 +1273,17 @@ state 63
     OR              reduce using rule 22 (expression -> expression GT term .)
     THEN            reduce using rule 22 (expression -> expression GT term .)
     RPAREN          reduce using rule 22 (expression -> expression GT term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 64
 
     (23) expression -> expression GE term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 23 (expression -> expression GE term .)
     PLUS            reduce using rule 23 (expression -> expression GE term .)
@@ -1298,17 +1298,17 @@ state 64
     OR              reduce using rule 23 (expression -> expression GE term .)
     THEN            reduce using rule 23 (expression -> expression GE term .)
     RPAREN          reduce using rule 23 (expression -> expression GE term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 65
 
     (24) expression -> expression EQ term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 24 (expression -> expression EQ term .)
     PLUS            reduce using rule 24 (expression -> expression EQ term .)
@@ -1323,17 +1323,17 @@ state 65
     OR              reduce using rule 24 (expression -> expression EQ term .)
     THEN            reduce using rule 24 (expression -> expression EQ term .)
     RPAREN          reduce using rule 24 (expression -> expression EQ term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 66
 
     (25) expression -> expression NEQ term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 25 (expression -> expression NEQ term .)
     PLUS            reduce using rule 25 (expression -> expression NEQ term .)
@@ -1348,17 +1348,17 @@ state 66
     OR              reduce using rule 25 (expression -> expression NEQ term .)
     THEN            reduce using rule 25 (expression -> expression NEQ term .)
     RPAREN          reduce using rule 25 (expression -> expression NEQ term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 67
 
     (26) expression -> expression AND term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 26 (expression -> expression AND term .)
     PLUS            reduce using rule 26 (expression -> expression AND term .)
@@ -1373,17 +1373,17 @@ state 67
     OR              reduce using rule 26 (expression -> expression AND term .)
     THEN            reduce using rule 26 (expression -> expression AND term .)
     RPAREN          reduce using rule 26 (expression -> expression AND term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 68
 
     (27) expression -> expression OR term .
-    (29) term -> term . EXPONENT factor
-    (30) term -> term . TIMES factor
-    (31) term -> term . DIVIDE factor
+    (29) term -> term . TIMES factor
+    (30) term -> term . DIVIDE factor
+    (31) term -> term . EXPONENT factor
 
     SEMI            reduce using rule 27 (expression -> expression OR term .)
     PLUS            reduce using rule 27 (expression -> expression OR term .)
@@ -1398,84 +1398,84 @@ state 68
     OR              reduce using rule 27 (expression -> expression OR term .)
     THEN            reduce using rule 27 (expression -> expression OR term .)
     RPAREN          reduce using rule 27 (expression -> expression OR term .)
-    EXPONENT        shift and go to state 49
-    TIMES           shift and go to state 50
-    DIVIDE          shift and go to state 51
+    TIMES           shift and go to state 49
+    DIVIDE          shift and go to state 50
+    EXPONENT        shift and go to state 51
 
 
 state 69
 
-    (29) term -> term EXPONENT factor .
+    (29) term -> term TIMES factor .
 
-    EXPONENT        reduce using rule 29 (term -> term EXPONENT factor .)
-    TIMES           reduce using rule 29 (term -> term EXPONENT factor .)
-    DIVIDE          reduce using rule 29 (term -> term EXPONENT factor .)
-    SEMI            reduce using rule 29 (term -> term EXPONENT factor .)
-    PLUS            reduce using rule 29 (term -> term EXPONENT factor .)
-    MINUS           reduce using rule 29 (term -> term EXPONENT factor .)
-    LT              reduce using rule 29 (term -> term EXPONENT factor .)
-    LE              reduce using rule 29 (term -> term EXPONENT factor .)
-    GT              reduce using rule 29 (term -> term EXPONENT factor .)
-    GE              reduce using rule 29 (term -> term EXPONENT factor .)
-    EQ              reduce using rule 29 (term -> term EXPONENT factor .)
-    NEQ             reduce using rule 29 (term -> term EXPONENT factor .)
-    AND             reduce using rule 29 (term -> term EXPONENT factor .)
-    OR              reduce using rule 29 (term -> term EXPONENT factor .)
-    THEN            reduce using rule 29 (term -> term EXPONENT factor .)
-    RPAREN          reduce using rule 29 (term -> term EXPONENT factor .)
+    TIMES           reduce using rule 29 (term -> term TIMES factor .)
+    DIVIDE          reduce using rule 29 (term -> term TIMES factor .)
+    EXPONENT        reduce using rule 29 (term -> term TIMES factor .)
+    SEMI            reduce using rule 29 (term -> term TIMES factor .)
+    PLUS            reduce using rule 29 (term -> term TIMES factor .)
+    MINUS           reduce using rule 29 (term -> term TIMES factor .)
+    LT              reduce using rule 29 (term -> term TIMES factor .)
+    LE              reduce using rule 29 (term -> term TIMES factor .)
+    GT              reduce using rule 29 (term -> term TIMES factor .)
+    GE              reduce using rule 29 (term -> term TIMES factor .)
+    EQ              reduce using rule 29 (term -> term TIMES factor .)
+    NEQ             reduce using rule 29 (term -> term TIMES factor .)
+    AND             reduce using rule 29 (term -> term TIMES factor .)
+    OR              reduce using rule 29 (term -> term TIMES factor .)
+    THEN            reduce using rule 29 (term -> term TIMES factor .)
+    RPAREN          reduce using rule 29 (term -> term TIMES factor .)
 
 
 state 70
 
-    (30) term -> term TIMES factor .
+    (30) term -> term DIVIDE factor .
 
-    EXPONENT        reduce using rule 30 (term -> term TIMES factor .)
-    TIMES           reduce using rule 30 (term -> term TIMES factor .)
-    DIVIDE          reduce using rule 30 (term -> term TIMES factor .)
-    SEMI            reduce using rule 30 (term -> term TIMES factor .)
-    PLUS            reduce using rule 30 (term -> term TIMES factor .)
-    MINUS           reduce using rule 30 (term -> term TIMES factor .)
-    LT              reduce using rule 30 (term -> term TIMES factor .)
-    LE              reduce using rule 30 (term -> term TIMES factor .)
-    GT              reduce using rule 30 (term -> term TIMES factor .)
-    GE              reduce using rule 30 (term -> term TIMES factor .)
-    EQ              reduce using rule 30 (term -> term TIMES factor .)
-    NEQ             reduce using rule 30 (term -> term TIMES factor .)
-    AND             reduce using rule 30 (term -> term TIMES factor .)
-    OR              reduce using rule 30 (term -> term TIMES factor .)
-    THEN            reduce using rule 30 (term -> term TIMES factor .)
-    RPAREN          reduce using rule 30 (term -> term TIMES factor .)
+    TIMES           reduce using rule 30 (term -> term DIVIDE factor .)
+    DIVIDE          reduce using rule 30 (term -> term DIVIDE factor .)
+    EXPONENT        reduce using rule 30 (term -> term DIVIDE factor .)
+    SEMI            reduce using rule 30 (term -> term DIVIDE factor .)
+    PLUS            reduce using rule 30 (term -> term DIVIDE factor .)
+    MINUS           reduce using rule 30 (term -> term DIVIDE factor .)
+    LT              reduce using rule 30 (term -> term DIVIDE factor .)
+    LE              reduce using rule 30 (term -> term DIVIDE factor .)
+    GT              reduce using rule 30 (term -> term DIVIDE factor .)
+    GE              reduce using rule 30 (term -> term DIVIDE factor .)
+    EQ              reduce using rule 30 (term -> term DIVIDE factor .)
+    NEQ             reduce using rule 30 (term -> term DIVIDE factor .)
+    AND             reduce using rule 30 (term -> term DIVIDE factor .)
+    OR              reduce using rule 30 (term -> term DIVIDE factor .)
+    THEN            reduce using rule 30 (term -> term DIVIDE factor .)
+    RPAREN          reduce using rule 30 (term -> term DIVIDE factor .)
 
 
 state 71
 
-    (31) term -> term DIVIDE factor .
+    (31) term -> term EXPONENT factor .
 
-    EXPONENT        reduce using rule 31 (term -> term DIVIDE factor .)
-    TIMES           reduce using rule 31 (term -> term DIVIDE factor .)
-    DIVIDE          reduce using rule 31 (term -> term DIVIDE factor .)
-    SEMI            reduce using rule 31 (term -> term DIVIDE factor .)
-    PLUS            reduce using rule 31 (term -> term DIVIDE factor .)
-    MINUS           reduce using rule 31 (term -> term DIVIDE factor .)
-    LT              reduce using rule 31 (term -> term DIVIDE factor .)
-    LE              reduce using rule 31 (term -> term DIVIDE factor .)
-    GT              reduce using rule 31 (term -> term DIVIDE factor .)
-    GE              reduce using rule 31 (term -> term DIVIDE factor .)
-    EQ              reduce using rule 31 (term -> term DIVIDE factor .)
-    NEQ             reduce using rule 31 (term -> term DIVIDE factor .)
-    AND             reduce using rule 31 (term -> term DIVIDE factor .)
-    OR              reduce using rule 31 (term -> term DIVIDE factor .)
-    THEN            reduce using rule 31 (term -> term DIVIDE factor .)
-    RPAREN          reduce using rule 31 (term -> term DIVIDE factor .)
+    TIMES           reduce using rule 31 (term -> term EXPONENT factor .)
+    DIVIDE          reduce using rule 31 (term -> term EXPONENT factor .)
+    EXPONENT        reduce using rule 31 (term -> term EXPONENT factor .)
+    SEMI            reduce using rule 31 (term -> term EXPONENT factor .)
+    PLUS            reduce using rule 31 (term -> term EXPONENT factor .)
+    MINUS           reduce using rule 31 (term -> term EXPONENT factor .)
+    LT              reduce using rule 31 (term -> term EXPONENT factor .)
+    LE              reduce using rule 31 (term -> term EXPONENT factor .)
+    GT              reduce using rule 31 (term -> term EXPONENT factor .)
+    GE              reduce using rule 31 (term -> term EXPONENT factor .)
+    EQ              reduce using rule 31 (term -> term EXPONENT factor .)
+    NEQ             reduce using rule 31 (term -> term EXPONENT factor .)
+    AND             reduce using rule 31 (term -> term EXPONENT factor .)
+    OR              reduce using rule 31 (term -> term EXPONENT factor .)
+    THEN            reduce using rule 31 (term -> term EXPONENT factor .)
+    RPAREN          reduce using rule 31 (term -> term EXPONENT factor .)
 
 
 state 72
 
     (37) factor -> LPAREN expression RPAREN .
 
-    EXPONENT        reduce using rule 37 (factor -> LPAREN expression RPAREN .)
     TIMES           reduce using rule 37 (factor -> LPAREN expression RPAREN .)
     DIVIDE          reduce using rule 37 (factor -> LPAREN expression RPAREN .)
+    EXPONENT        reduce using rule 37 (factor -> LPAREN expression RPAREN .)
     SEMI            reduce using rule 37 (factor -> LPAREN expression RPAREN .)
     PLUS            reduce using rule 37 (factor -> LPAREN expression RPAREN .)
     MINUS           reduce using rule 37 (factor -> LPAREN expression RPAREN .)
@@ -1603,9 +1603,9 @@ state 81
     (26) expression -> . expression AND term
     (27) expression -> . expression OR term
     (28) expression -> . term
-    (29) term -> . term EXPONENT factor
-    (30) term -> . term TIMES factor
-    (31) term -> . term DIVIDE factor
+    (29) term -> . term TIMES factor
+    (30) term -> . term DIVIDE factor
+    (31) term -> . term EXPONENT factor
     (32) term -> . factor
     (33) factor -> . NUMBER
     (34) factor -> . ID
