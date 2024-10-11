@@ -80,7 +80,7 @@ def t_COMMENT_BLOCK(t):
 # Nueva línea
 def t_newline(t):
     r'\n+'
-    t.lexer.lineno += t.value.count('\n')
+    t.lexer.lineno += len(t.value)
 
 # Manejo de errores léxicos
 def t_error(t):
@@ -93,7 +93,28 @@ lexer = lex.lex()
 
 # Tabla de símbolos
 symbol_table = {}
+symbol_id_counter = 0
+total_lines = 0
 
+
+def update_symbol_table(name, token_type, line):
+    global symbol_table, symbol_id_counter, total_lines
+    if name not in symbol_table:
+        symbol_id_counter += 1
+        symbol_table[name] = {'id': symbol_id_counter, 'tipo': 'undefined', 'lineas': set()}
+    
+    if token_type in ['int', 'float', 'bool'] or (symbol_table[name]['tipo'] in ['undefined', 'ID'] and token_type != 'ID'):
+        symbol_table[name]['tipo'] = token_type
+    
+    # Solo agregamos líneas válidas (mayores que 0 y no mayores que el total de líneas)
+    if 0 < line <= total_lines:
+        symbol_table[name]['lineas'].add(line)
+    else:
+        print(f"DEBUG: Línea inválida detectada: {line} para {name}")
+    
+    print(f"DEBUG: Actualizando tabla de símbolos - Nombre: {name}, Tipo: {token_type}, Línea: {line}")
+    print(f"DEBUG: Contenido actual de la tabla de símbolos: {symbol_table}")
+    
 # Definir la gramática
 def p_program(p):
     'program : PROGRAM LBRACE declarations statements RBRACE'
@@ -114,11 +135,8 @@ def p_declarations(p):
 def p_declaration(p):
     '''declaration : type declaration_list SEMI'''
     for var in p[2]:
-        symbol_table[var] = p[1]  # Agregar cada variable con su tipo a la tabla de símbolos
-
+        update_symbol_table(var, p[1][1], p.lineno(1))
     p[0] = ('declaration', p[1], p[2])
-
-
 
 def p_declaration_list(p):
     '''declaration_list : ID
@@ -152,6 +170,7 @@ def p_statement(p):
     if p[1] == 'write':
         p[0] = ('write', p[2])
     elif p[1] == 'read':
+        update_symbol_table(p[2], 'Variable', p.lineno(1))
         p[0] = ('read', ('id', p[2]))
     elif p[1] == 'if':
         p[0] = ('if', p[2], ('then', p[5]), ('else', p[9]))
@@ -159,11 +178,8 @@ def p_statement(p):
         p[0] = ('do_until', ('body', p[3]), ('condition', p[7]))
     elif p[1] == 'while':
         p[0] = ('while', ('condition', p[3]), ('body', p[6]))
-    else:
-        # Verificar si la variable a la izquierda ya fue declarada
-        if p[1] not in symbol_table:
-            error_msg = f"Error: La variable '{p[1]}' no ha sido declarada en la línea {p.lineno(1)}\n"
-            error_display.insert(tk.END, error_msg)
+    else:  # Asignación
+        update_symbol_table(p[1], 'Variable', p.lineno(1))
         p[0] = ('assign', ('id', p[1]), p[3])
 
 def p_expression(p):
@@ -236,12 +252,22 @@ def p_error(p):
         error_display.insert(tk.END, error_msg)
         
 def evaluate(node):
+    def format_value(value):
+        if value is None:
+            return "None"
+        if isinstance(value, int):
+            return str(value)
+        elif isinstance(value, float):
+            return f"{value:.2f}" if value % 1 != 0 else str(int(value))
+        return str(value)
+
     if isinstance(node, tuple):
         if node[0] == 'number':
-            return node[1], str(node[1])
+            return node[1], format_value(node[1])
         elif node[0] == 'id':
             if node[1] in symbol_table:
-                return symbol_table[node[1]]['value'], f"{node[1]}:{symbol_table[node[1]]['type']}"
+                value = symbol_table[node[1]]['value']
+                return value, f"{node[1]}:{symbol_table[node[1]]['type']}={format_value(value)}"
             else:
                 semantic_error(f"Variable '{node[1]}' no definida", node[1])
                 return None, f"Error: {node[1]} no definida"
@@ -252,22 +278,33 @@ def evaluate(node):
             right_val, right_str = evaluate(node[3])
             if left_val is None or right_val is None:
                 return None, f"Error en {left_str} {node[1]} {right_str}"
-            if node[1] == '+':
-                return left_val + right_val, f"({left_str} + {right_str} = {left_val + right_val})"
-            elif node[1] == '-':
-                return left_val - right_val, f"({left_str} - {right_str} = {left_val - right_val})"
-            elif node[1] == '*':
-                return left_val * right_val, f"({left_str} * {right_str} = {left_val * right_val})"
-            elif node[1] == '/':
-                if right_val == 0:
-                    semantic_error("División por cero", node[2])
-                    return None, f"Error: División por cero ({left_str} / {right_str})"
-                return left_val / right_val, f"({left_str} / {right_str} = {left_val / right_val})"
-            elif node[1] == '^':
-                return left_val ** right_val, f"({left_str} ^ {right_str} = {left_val ** right_val})"
+            
+            try:
+                if node[1] == '+':
+                    result = left_val + right_val
+                elif node[1] == '-':
+                    result = left_val - right_val
+                elif node[1] == '*':
+                    result = left_val * right_val
+                elif node[1] == '/':
+                    if right_val == 0:
+                        semantic_error("División por cero", node[2])
+                        return None, f"Error: División por cero ({left_str} / {right_str})"
+                    result = left_val / right_val
+                elif node[1] == '^':
+                    result = left_val ** right_val
+                else:
+                    return None, f"Operador desconocido: {node[1]}"
+
+                return result, f"({left_str} {node[1]} {right_str} = {format_value(result)})"
+            except Exception as e:
+                return None, f"Error en operación {node[1]}: {str(e)}"
         elif node[0] == 'unary_minus':
             val, str_rep = evaluate(node[1])
-            return -val, f"(-{str_rep} = {-val})"
+            if val is None:
+                return None, f"Error en unary_minus: {str_rep}"
+            result = -val
+            return result, f"(-{str_rep} = {format_value(result)})"
         elif node[0] == 'group':
             return evaluate(node[1])
         elif node[0] == 'program':
@@ -293,24 +330,32 @@ def evaluate(node):
             value, value_str = evaluate(node[2])
             var_name = node[1][1]
             if var_name in symbol_table:
-                symbol_table[var_name]['value'] = value
-                return value, f"{var_name}:{symbol_table[var_name]['type']} = {value_str}"
+                var_type = symbol_table[var_name]['type']
+                try:
+                    if value is None:
+                        return None, f"Error: No se puede asignar None a {var_name}"
+                    if var_type == 'int':
+                        value = int(value)  # Convertir sin mostrar advertencia
+                    elif var_type == 'float':
+                        value = float(value)
+                    symbol_table[var_name]['value'] = value
+                    return value, f"{var_name}:{var_type}={format_value(value)}"
+                except ValueError as e:
+                    return None, f"Error: No se puede convertir '{value}' a {var_type}: {str(e)}"
             else:
                 semantic_error(f"Variable '{var_name}' no definida", node[1])
                 return None, f"Error: {var_name} no definida"
         elif node[0] == 'write':
             value, value_str = evaluate(node[1])
-            print(value)  # O usa tu propia función de salida
+            print(format_value(value))  # Usa la función format_value para la salida
             return value, f"write({value_str})"
-    return None, "Nodo no evaluable"
+    return None, f"Nodo no evaluable: {node}"
 
 def semantic_error(message, node):
-    if hasattr(node, 'lineno'):
-        lineno = node.lineno
-    else:
-        lineno = 'desconocida'
-    error_msg = f"Error semántico en la línea {lineno}: {message}\n"
+    line = node.lineno if hasattr(node, 'lineno') else 'unknown'
+    error_msg = f"Error semántico en la línea {line}: {message}\n"
     error_display.insert(tk.END, error_msg)
+    print(error_msg)  # También imprimir en la consola para debugging
     
 
 # Crear el analizador sintáctico
@@ -320,27 +365,42 @@ parser = yacc.yacc()
 
 # Funciones de la interfaz gráfica
 def analyze():
-    # Reiniciar el contador de líneas y limpiar errores
+    global symbol_table, symbol_id_counter, total_lines
+    symbol_table.clear()
+    symbol_id_counter = 0
+    print("DEBUG: Tabla de símbolos reiniciada")
+    
+    input_text = text_area.get("1.0", tk.END)
+    total_lines = input_text.count('\n') + 1
+    print(f"DEBUG: Total de líneas en el código fuente: {total_lines}")
+    
     lexer.lineno = 1
     error_display.delete('1.0', tk.END)
     
-    symbol_table.clear()
-    
-    input_text = text_area.get("1.0", tk.END)
     lexer.input(input_text)
     tokens = list(lexer)
+    
+  
+    for token in tokens:
+        print(f"Token: {token.type}, Valor: {token.value}, Línea: {token.lineno}")
+        if token.type == 'ID':
+            update_symbol_table(token.value, token.type, token.lineno)
+    
     display_tokens(tokens)
     
     result = parser.parse(input_text, lexer=lexer)
+    print(f"DEBUG: Resultado del parsing: {result}")
+    
+    display_symbol_table()
     
     if result:
         _, evaluation_result = evaluate(result)
         print("Resultado de la evaluación:", evaluation_result)
     
-    # Mostrar la tabla de símbolos, árbol sintáctico, y errores
-    display_symbol_table(tokens)
     display_syntax_tree(result if result else 'Errores en el análisis')
-    display_annotated_tree(result)
+    
+    
+    
     
 
 def display_tokens(tokens):
@@ -352,40 +412,37 @@ def display_tokens(tokens):
 def display_tree_node(node, parent_id=""):
     if isinstance(node, tuple):
         node_type = str(node[0])
-        if node_type == 'binop':
-            _, result_str = evaluate(node)
-            text = f"Operation: {result_str}"
-        elif node_type in ['number', 'boolean']:
-            _, result_str = evaluate(node)
-            text = f"{node_type.capitalize()}: {result_str}"
-        elif node_type == 'id':
-            var_name = node[1]
-            if var_name in symbol_table:
-                var_type = symbol_table[var_name]['type']
-                var_value = symbol_table[var_name]['value']
-                text = f"ID: {var_name} (Type: {var_type}, Value: {var_value})"
+        try:
+            if node_type == 'binop':
+                _, result_str = evaluate(node)
+                text = f"Operation: {result_str}"
+            elif node_type in ['number', 'boolean']:
+                value, _ = evaluate(node)
+                if isinstance(value, float) and value.is_integer():
+                    result_str = str(int(value))
+                else:
+                    result_str = str(value)
+                text = f"{node_type.capitalize()}: {result_str}"
+            elif node_type == 'id':
+                _, result_str = evaluate(node)
+                text = f"ID: {result_str}"
+            elif node_type == 'unary_minus':
+                _, result_str = evaluate(node)
+                text = f"Unary minus: {result_str}"
+            elif node_type == 'assign':
+                _, result_str = evaluate(node)
+                text = f"Assign: {result_str}"
+            elif node_type == 'declaration':
+                var_type = node[1][1]
+                var_names = ', '.join(node[2])
+                text = f"Declaration: {var_type} {var_names}"
             else:
-                text = f"ID: {var_name} (Undefined)"
-        elif node_type == 'unary_minus':
-            _, result_str = evaluate(node)
-            text = f"Unary minus: {result_str}"
-        elif node_type == 'assign':
-            var_name = node[1][1]
-            if var_name in symbol_table:
-                var_type = symbol_table[var_name]['type']
-                _, value_str = evaluate(node[2])
-                text = f"Assign: {var_name} (Type: {var_type}) = {value_str}"
-            else:
-                text = f"Assign: {var_name} (Undefined) = {evaluate(node[2])[1]}"
-        elif node_type == 'declaration':
-            var_type = node[1][1]
-            var_names = ', '.join(node[2])
-            text = f"Declaration: {var_type} {var_names}"
-        else:
-            _, result_str = evaluate(node)
-            text = f"{node_type}: {result_str}"
+                _, result_str = evaluate(node)
+                text = f"{node_type}: {result_str}"
+        except Exception as e:
+            text = f"Error in {node_type}: {str(e)}"
         
-        item_id = tree_view.insert(parent_id, 'end', text=text, open=True)
+        item_id = annotated_tree.insert(parent_id, 'end', text=text, open=True)
         for child in node[1:]:
             if not callable(child):  # Skip lambda functions
                 display_tree_node(child, item_id)
@@ -393,7 +450,9 @@ def display_tree_node(node, parent_id=""):
         for item in node:
             display_tree_node(item, parent_id)
     else:
-        tree_view.insert(parent_id, 'end', text=f"Value: {node}")
+        if isinstance(node, float) and node.is_integer():
+            node = int(node)
+        annotated_tree.insert(parent_id, 'end', text=f"Value: {node}")
 
 def display_annotated_node(node, parent_id=""):
     if isinstance(node, tuple):
@@ -412,19 +471,27 @@ def display_syntax_tree(syntax_tree):
         display_tree_node(syntax_tree, "")
 
 def display_annotated_tree(syntax_tree):
-    annotated_tree.delete(*annotated_tree.get_children())
+    tree_view.delete(*tree_view.get_children())
     if isinstance(syntax_tree, str):  # Si hubo errores
-        annotated_tree.insert('', 'end', text=syntax_tree)
+        tree_view.insert('', 'end', text=syntax_tree)
     else:
-        display_annotated_node(syntax_tree, "")
+        display_tree_node(syntax_tree, "")
 
-
-def display_symbol_table(tokens):
+def display_symbol_table():
+    global total_lines
     for item in symbol_tree.get_children():
         symbol_tree.delete(item)
-    for token in tokens:
-        if token.type == 'ID':
-            symbol_tree.insert('', 'end', values=(token.value, 'ID', token.lineno))
+    for name, info in symbol_table.items():
+        valid_lines = sorted(line for line in info['lineas'] if 0 < line <= total_lines)
+        invalid_lines = [line for line in info['lineas'] if line > total_lines]
+        if invalid_lines:
+            print(f"ADVERTENCIA: Líneas fuera de rango detectadas para {name}: {invalid_lines}")
+        symbol_tree.insert('', 'end', values=(
+            info['id'],
+            name,
+            info['tipo'],
+            ', '.join(map(str, valid_lines))
+        ))
 
 def open_file():
     file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
@@ -498,10 +565,11 @@ annotated_tree = ttk.Treeview(annotated_tree_frame)
 annotated_tree.pack(fill='both', expand=True)
 
 # Tabla de símbolos
-symbol_tree = ttk.Treeview(symbol_frame, columns=("Nombre", "Tipo", "Línea"), show='headings')
+symbol_tree = ttk.Treeview(symbol_frame, columns=("ID", "Nombre", "Tipo", "Líneas"), show='headings')
+symbol_tree.heading("ID", text="ID")
 symbol_tree.heading("Nombre", text="Nombre")
 symbol_tree.heading("Tipo", text="Tipo")
-symbol_tree.heading("Línea", text="Línea")
+symbol_tree.heading("Líneas", text="Líneas")
 scrollbar_symbol = ttk.Scrollbar(symbol_frame, orient="vertical", command=symbol_tree.yview)
 symbol_tree.configure(yscrollcommand=scrollbar_symbol.set)
 scrollbar_symbol.pack(side=tk.RIGHT, fill=tk.Y)
