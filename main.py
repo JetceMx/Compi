@@ -80,7 +80,7 @@ def t_COMMENT_BLOCK(t):
 # Nueva línea
 def t_newline(t):
     r'\n+'
-    t.lexer.lineno += t.value.count('\n')
+    t.lexer.lineno += len(t.value)
 
 # Manejo de errores léxicos
 def t_error(t):
@@ -93,6 +93,21 @@ lexer = lex.lex()
 
 # Tabla de símbolos
 symbol_table = {}
+symbol_id_counter = 0
+
+
+def update_symbol_table(name, token_type, line):
+    global symbol_id_counter
+    if name not in symbol_table:
+        symbol_id_counter += 1
+        symbol_table[name] = {'id': symbol_id_counter, 'tipo': token_type, 'lineas': set()}
+    else:
+        # Si el símbolo ya existe, actualizamos el tipo solo si es más específico
+        if token_type in ['int', 'float', 'bool']:
+            symbol_table[name]['tipo'] = token_type
+    symbol_table[name]['lineas'].add(line)
+    print(f"DEBUG: Actualizando tabla de símbolos - Nombre: {name}, Tipo: {token_type}, Línea: {line}")
+    print(f"DEBUG: Contenido actual de la tabla de símbolos: {symbol_table}")
 
 # Definir la gramática
 def p_program(p):
@@ -114,9 +129,11 @@ def p_declarations(p):
 def p_declaration(p):
     '''declaration : type declaration_list SEMI'''
     for var in p[2]:
-        symbol_table[var] = p[1]  # Agregar cada variable con su tipo a la tabla de símbolos
-
+        update_symbol_table(var, p[1][1], p.lineno(1))
+        symbol_table[var]['tipo'] = p[1][1]  # Actualizar el tipo con int, float o bool
     p[0] = ('declaration', p[1], p[2])
+    print(f"DEBUG: Procesando declaración - Tipo: {p[1][1]}, Variables: {p[2]}")
+    print(f"DEBUG: Tabla de símbolos después de la declaración: {symbol_table}")
 
 
 
@@ -152,6 +169,7 @@ def p_statement(p):
     if p[1] == 'write':
         p[0] = ('write', p[2])
     elif p[1] == 'read':
+        update_symbol_table(p[2], 'Variable', p.lineno(1))
         p[0] = ('read', ('id', p[2]))
     elif p[1] == 'if':
         p[0] = ('if', p[2], ('then', p[5]), ('else', p[9]))
@@ -159,11 +177,8 @@ def p_statement(p):
         p[0] = ('do_until', ('body', p[3]), ('condition', p[7]))
     elif p[1] == 'while':
         p[0] = ('while', ('condition', p[3]), ('body', p[6]))
-    else:
-        # Verificar si la variable a la izquierda ya fue declarada
-        if p[1] not in symbol_table:
-            error_msg = f"Error: La variable '{p[1]}' no ha sido declarada en la línea {p.lineno(1)}\n"
-            error_display.insert(tk.END, error_msg)
+    else:  # Asignación
+        update_symbol_table(p[1], 'Variable', p.lineno(1))
         p[0] = ('assign', ('id', p[1]), p[3])
 
 def p_expression(p):
@@ -351,27 +366,48 @@ parser = yacc.yacc()
 
 # Funciones de la interfaz gráfica
 def analyze():
-    # Reiniciar el contador de líneas y limpiar errores
-    lexer.lineno = 1
+    global symbol_table, symbol_id_counter
+    symbol_table.clear()
+    symbol_id_counter = 0
+    print("DEBUG: Tabla de símbolos reiniciada")
+    
+    lexer.lineno = 1  # Aseguramos que comienza en 1
     error_display.delete('1.0', tk.END)
     
-    symbol_table.clear()
-    
     input_text = text_area.get("1.0", tk.END)
+    print("DEBUG: Texto de entrada:")
+    print(input_text)
+    
     lexer.input(input_text)
     tokens = list(lexer)
+    
+    print("DEBUG: Tokens generados:")
+    for token in tokens:
+        print(f"Token: {token.type}, Valor: {token.value}, Línea: {token.lineno}")
+        if token.type == 'ID':
+            update_symbol_table(token.value, token.type, token.lineno)
+    
     display_tokens(tokens)
+    display_symbol_table()
+    
+    
+    print("DEBUG: Contenido final de la tabla de símbolos:")
+    for name, info in symbol_table.items():
+        print(f"  {name}: {info}")    
+ 
+    
     
     result = parser.parse(input_text, lexer=lexer)
-    
     if result:
         _, evaluation_result = evaluate(result)
         print("Resultado de la evaluación:", evaluation_result)
+    print(f"DEBUG: Resultado del parsing: {result}")
     
-    # Mostrar la tabla de símbolos, árbol sintáctico, y errores
-    display_symbol_table(tokens)
+
     display_syntax_tree(result if result else 'Errores en el análisis')
     display_annotated_tree(result)
+    
+    
     
 
 def display_tokens(tokens):
@@ -442,13 +478,16 @@ def display_annotated_tree(syntax_tree):
     else:
         display_tree_node(syntax_tree, "")
 
-
-def display_symbol_table(tokens):
+def display_symbol_table():
     for item in symbol_tree.get_children():
         symbol_tree.delete(item)
-    for token in tokens:
-        if token.type == 'ID':
-            symbol_tree.insert('', 'end', values=(token.value, 'ID', token.lineno))
+    for name, info in symbol_table.items():
+        symbol_tree.insert('', 'end', values=(
+            name,
+            info.get('id', 'N/A'),  # Usar 'N/A' si 'id' no está presente
+            info.get('tipo', 'N/A'),  # Usar 'N/A' si 'tipo' no está presente
+            ', '.join(map(str, sorted(info.get('lineas', set()))))  # Usar set vacío si 'lineas' no está presente
+        ))
 
 def open_file():
     file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
@@ -522,10 +561,11 @@ annotated_tree = ttk.Treeview(annotated_tree_frame)
 annotated_tree.pack(fill='both', expand=True)
 
 # Tabla de símbolos
-symbol_tree = ttk.Treeview(symbol_frame, columns=("Nombre", "Tipo", "Línea"), show='headings')
+symbol_tree = ttk.Treeview(symbol_frame, columns=("ID", "Nombre", "Tipo", "Líneas"), show='headings')
+symbol_tree.heading("ID", text="ID")
 symbol_tree.heading("Nombre", text="Nombre")
 symbol_tree.heading("Tipo", text="Tipo")
-symbol_tree.heading("Línea", text="Línea")
+symbol_tree.heading("Líneas", text="Líneas")
 scrollbar_symbol = ttk.Scrollbar(symbol_frame, orient="vertical", command=symbol_tree.yview)
 symbol_tree.configure(yscrollcommand=scrollbar_symbol.set)
 scrollbar_symbol.pack(side=tk.RIGHT, fill=tk.Y)
