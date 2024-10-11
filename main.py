@@ -335,9 +335,7 @@ def evaluate(node):
                     if value is None:
                         return None, f"Error: No se puede asignar None a {var_name}"
                     if var_type == 'int':
-                        if isinstance(value, float):
-                            semantic_error(f"Advertencia: Conversión de float a int para {var_name}", node)
-                        value = int(value)
+                        value = int(value)  # Convertir sin mostrar advertencia
                     elif var_type == 'float':
                         value = float(value)
                     symbol_table[var_name]['value'] = value
@@ -419,7 +417,11 @@ def display_tree_node(node, parent_id=""):
                 _, result_str = evaluate(node)
                 text = f"Operation: {result_str}"
             elif node_type in ['number', 'boolean']:
-                _, result_str = evaluate(node)
+                value, _ = evaluate(node)
+                if isinstance(value, float) and value.is_integer():
+                    result_str = str(int(value))
+                else:
+                    result_str = str(value)
                 text = f"{node_type.capitalize()}: {result_str}"
             elif node_type == 'id':
                 _, result_str = evaluate(node)
@@ -448,6 +450,8 @@ def display_tree_node(node, parent_id=""):
         for item in node:
             display_tree_node(item, parent_id)
     else:
+        if isinstance(node, float) and node.is_integer():
+            node = int(node)
         annotated_tree.insert(parent_id, 'end', text=f"Value: {node}")
 
 def display_annotated_node(node, parent_id=""):
