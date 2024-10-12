@@ -2,6 +2,9 @@ import ply.lex as lex
 import ply.yacc as yacc
 import tkinter as tk
 from tkinter import scrolledtext, ttk, filedialog
+from idlelib.colorizer import ColorDelegator
+from idlelib.percolator import Percolator
+import re
 
 # Palabras reservadas
 reserved = {
@@ -31,6 +34,35 @@ tokens = [
     'SEMI', 'COMMA', 'LPAREN', 'RPAREN', 'LBRACE', 'RBRACE',
     'ID', 'NUMBER'
 ] + list(reserved.values())
+
+class CustomColorDelegator(ColorDelegator):
+    def __init__(self):
+        ColorDelegator.__init__(self)
+        self.prog = re.compile(r'\b(?P<KEYWORD>program|if|else|end|do|until|while|read|write|float|int|bool|true|false|then)\b|'
+                               r'(?P<OPERATOR>\+|-|\*|/|\^|<|<=|>|>=|==|!=|=|\|\||&&)|'
+                               r'\b(?P<VARIABLE>[a-zA-Z_][a-zA-Z0-9_]*)\b|'
+                               r'(?P<NUMBER>\d+(\.\d*)?|\.\d+)')
+
+    def colorize(self, start, end):
+        self.tag_remove("KEYWORD", start, end)
+        self.tag_remove("OPERATOR", start, end)
+        self.tag_remove("VARIABLE", start, end)
+        self.tag_remove("NUMBER", start, end)
+        
+        for tag in ("KEYWORD", "OPERATOR", "VARIABLE", "NUMBER"):
+            self.tag_configure(tag, foreground=self.colors.get(tag, "black"))
+        
+        self.tag_configure("KEYWORD", foreground="black")
+        self.tag_configure("OPERATOR", foreground="red")
+        self.tag_configure("VARIABLE", foreground="green")
+        self.tag_configure("NUMBER", foreground="purple")
+        
+        for match in self.prog.finditer(self.text.get(start, end)):
+            for key, value in match.groupdict().items():
+                if value:
+                    startIndex = match.start()
+                    endIndex = match.end()
+                    self.tag_add(key, f"{start}+{startIndex}c", f"{start}+{endIndex}c")
 
 # Reglas de tokens para símbolos especiales
 t_PLUS = r'\+'
@@ -531,8 +563,14 @@ tree_frame = ttk.Frame(notebook)
 notebook.add(tree_frame, text="Árbol Sintáctico")
 
 # Crear área de texto para el código
-text_area = tk.Text(code_frame, height=20)
+text_area = scrolledtext.ScrolledText(code_frame, height=20, wrap=tk.WORD)
 text_area.pack(fill='both', expand=True, padx=10, pady=10)
+
+
+
+# Aplicar el resaltado de sintaxis
+color_delegator = CustomColorDelegator()
+Percolator(text_area).insertfilter(color_delegator)
 
 # Botón para ejecutar el análisis
 analyze_button = tk.Button(code_frame, text="Analizar", command=analyze)
