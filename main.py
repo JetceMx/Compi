@@ -300,18 +300,24 @@ def evaluate(node):
             return node[1], format_value(node[1])
         elif node[0] == 'id':
             if node[1] in symbol_table:
-                value = symbol_table[node[1]]['value']
-                return value, f"{node[1]}:{symbol_table[node[1]]['type']}={format_value(value)}"
+                value = symbol_table[node[1]].get('value')
+                if value is None:
+                    print(f"Advertencia: La variable '{node[1]}' no tiene un valor asignado.")
+                    return None, f"{node[1]}:{symbol_table[node[1]].get('type', 'undefined')}=None"
+                return value, f"{node[1]}:{symbol_table[node[1]].get('type', 'undefined')}={format_value(value)}"
             else:
-                semantic_error(f"Variable '{node[1]}' no definida", node[1])
-                return None, f"Error: {node[1]} no definida"
+                error_msg = f"Error: Variable '{node[1]}' no definida"
+                print(error_msg)
+                return None, error_msg
         elif node[0] == 'boolean':
             return node[1] == 'true', str(node[1])
         elif node[0] == 'binop':
             left_val, left_str = evaluate(node[2])
             right_val, right_str = evaluate(node[3])
             if left_val is None or right_val is None:
-                return None, f"Error en {left_str} {node[1]} {right_str}"
+                error_msg = f"Error en {left_str} {node[1]} {right_str}"
+                print(error_msg)
+                return None, error_msg
             
             try:
                 if node[1] in ['+', '-', '*', '/', '^']:
@@ -323,8 +329,9 @@ def evaluate(node):
                         result = left_val * right_val
                     elif node[1] == '/':
                         if right_val == 0:
-                            semantic_error("División por cero", node[2])
-                            return None, f"Error: División por cero ({left_str} / {right_str})"
+                            error_msg = f"Error: División por cero ({left_str} / {right_str})"
+                            print(error_msg)
+                            return None, error_msg
                         result = left_val / right_val
                     elif node[1] == '^':
                         result = left_val ** right_val
@@ -342,11 +349,15 @@ def evaluate(node):
                     elif node[1] == '!=':
                         result = left_val != right_val
                 else:
-                    return None, f"Operador desconocido: {node[1]}"
+                    error_msg = f"Error: Operador desconocido: {node[1]}"
+                    print(error_msg)
+                    return None, error_msg
 
                 return result, f"({left_str} {node[1]} {right_str} = {format_value(result)})"
             except Exception as e:
-                return None, f"Error en operación {node[1]}: {str(e)}"
+                error_msg = f"Error en operación {node[1]}: {str(e)}"
+                print(error_msg)
+                return None, error_msg
         elif node[0] == 'unary_minus':
             val, str_rep = evaluate(node[1])
             if val is None:
@@ -378,10 +389,12 @@ def evaluate(node):
             value, value_str = evaluate(node[2])
             var_name = node[1][1]
             if var_name in symbol_table:
-                var_type = symbol_table[var_name]['type']
+                var_type = symbol_table[var_name].get('type', 'undefined')
                 try:
                     if value is None:
-                        return None, f"Error: No se puede asignar None a {var_name}"
+                        error_msg = f"Error: No se puede asignar None a {var_name}"
+                        print(error_msg)
+                        return None, error_msg
                     if var_type == 'int':
                         value = int(value)
                     elif var_type == 'float':
@@ -391,10 +404,13 @@ def evaluate(node):
                     symbol_table[var_name]['value'] = value
                     return value, f"{var_name}:{var_type}={format_value(value)}"
                 except ValueError as e:
-                    return None, f"Error: No se puede convertir '{value}' a {var_type}: {str(e)}"
+                    error_msg = f"Error: No se puede convertir '{value}' a {var_type}: {str(e)}"
+                    print(error_msg)
+                    return None, error_msg
             else:
-                semantic_error(f"Variable '{var_name}' no definida", node[1])
-                return None, f"Error: {var_name} no definida"
+                error_msg = f"Error: Variable '{var_name}' no definida"
+                print(error_msg)
+                return None, error_msg
         elif node[0] == 'write':
             value, value_str = evaluate(node[1])
             print(format_value(value))
@@ -436,7 +452,6 @@ def analyze():
     lexer.input(input_text)
     tokens = list(lexer)
     
-  
     for token in tokens:
         print(f"Token: {token.type}, Valor: {token.value}, Línea: {token.lineno}")
         if token.type == 'ID':
@@ -452,6 +467,8 @@ def analyze():
     if result:
         _, evaluation_result = evaluate(result)
         print("Resultado de la evaluación:", evaluation_result)
+        if "Error:" in evaluation_result:
+            error_display.insert(tk.END, evaluation_result + "\n")
     
     display_syntax_tree(result if result else 'Errores en el análisis')
     
