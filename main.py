@@ -496,9 +496,9 @@ def display_annotated_node(node, parent_id=""):
         annotated_tree.insert(parent_id, 'end', text=f"Leaf: {node}")
 
 def display_syntax_tree(syntax_tree):
-    tree_view.delete(*tree_view.get_children())
+    annotated_tree.delete(*annotated_tree.get_children())
     if isinstance(syntax_tree, str):  # Si hubo errores
-        tree_view.insert('', 'end', text=syntax_tree)
+        tree_view.reattach('', 'end', text=syntax_tree)
     else:
         display_tree_node(syntax_tree, "")
 
