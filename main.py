@@ -287,6 +287,8 @@ def evaluate(node):
     def format_value(value):
         if value is None:
             return "None"
+        if isinstance(value, bool):
+            return str(value).lower()
         if isinstance(value, int):
             return str(value)
         elif isinstance(value, float):
@@ -312,19 +314,33 @@ def evaluate(node):
                 return None, f"Error en {left_str} {node[1]} {right_str}"
             
             try:
-                if node[1] == '+':
-                    result = left_val + right_val
-                elif node[1] == '-':
-                    result = left_val - right_val
-                elif node[1] == '*':
-                    result = left_val * right_val
-                elif node[1] == '/':
-                    if right_val == 0:
-                        semantic_error("División por cero", node[2])
-                        return None, f"Error: División por cero ({left_str} / {right_str})"
-                    result = left_val / right_val
-                elif node[1] == '^':
-                    result = left_val ** right_val
+                if node[1] in ['+', '-', '*', '/', '^']:
+                    if node[1] == '+':
+                        result = left_val + right_val
+                    elif node[1] == '-':
+                        result = left_val - right_val
+                    elif node[1] == '*':
+                        result = left_val * right_val
+                    elif node[1] == '/':
+                        if right_val == 0:
+                            semantic_error("División por cero", node[2])
+                            return None, f"Error: División por cero ({left_str} / {right_str})"
+                        result = left_val / right_val
+                    elif node[1] == '^':
+                        result = left_val ** right_val
+                elif node[1] in ['<', '<=', '>', '>=', '==', '!=']:
+                    if node[1] == '<':
+                        result = left_val < right_val
+                    elif node[1] == '<=':
+                        result = left_val <= right_val
+                    elif node[1] == '>':
+                        result = left_val > right_val
+                    elif node[1] == '>=':
+                        result = left_val >= right_val
+                    elif node[1] == '==':
+                        result = left_val == right_val
+                    elif node[1] == '!=':
+                        result = left_val != right_val
                 else:
                     return None, f"Operador desconocido: {node[1]}"
 
@@ -367,9 +383,11 @@ def evaluate(node):
                     if value is None:
                         return None, f"Error: No se puede asignar None a {var_name}"
                     if var_type == 'int':
-                        value = int(value)  # Convertir sin mostrar advertencia
+                        value = int(value)
                     elif var_type == 'float':
                         value = float(value)
+                    elif var_type == 'bool':
+                        value = bool(value)
                     symbol_table[var_name]['value'] = value
                     return value, f"{var_name}:{var_type}={format_value(value)}"
                 except ValueError as e:
@@ -379,8 +397,14 @@ def evaluate(node):
                 return None, f"Error: {var_name} no definida"
         elif node[0] == 'write':
             value, value_str = evaluate(node[1])
-            print(format_value(value))  # Usa la función format_value para la salida
+            print(format_value(value))
             return value, f"write({value_str})"
+        elif node[0] == 'if':
+            condition_value, condition_str = evaluate(node[1])
+            return condition_value, f"if condition: ({condition_str}) = {format_value(condition_value)}"
+        elif node[0] == 'do_until':
+            condition_value, condition_str = evaluate(node[2])
+            return condition_value, f"do-until condition: ({condition_str}) = {format_value(condition_value)}"
     return None, f"Nodo no evaluable: {node}"
 
 def semantic_error(message, node):
