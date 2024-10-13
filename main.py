@@ -131,18 +131,16 @@ total_lines = 0
 
 def update_symbol_table(name, token_type, line):
     global symbol_table, symbol_id_counter, total_lines
-    if name not in symbol_table:
-        symbol_id_counter += 1
-        symbol_table[name] = {'id': symbol_id_counter, 'tipo': 'undefined', 'lineas': set()}
-    
-    if token_type in ['int', 'float', 'bool'] or (symbol_table[name]['tipo'] in ['undefined', 'ID'] and token_type != 'ID'):
-        symbol_table[name]['tipo'] = token_type
-    
-    # Solo agregamos líneas válidas (mayores que 0 y no mayores que el total de líneas)
-    if 0 < line <= total_lines:
-        symbol_table[name]['lineas'].add(line)
+    if name in symbol_table:
+        if token_type in ['int', 'float', 'bool']:
+            symbol_table[name]['tipo'] = token_type
+        if 0 < line <= total_lines:
+            symbol_table[name]['lineas'].add(line)
     else:
-        print(f"DEBUG: Línea inválida detectada: {line} para {name}")
+        # Solo añadir a la tabla de símbolos si es una declaración
+        if token_type in ['int', 'float', 'bool']:
+            symbol_id_counter += 1
+            symbol_table[name] = {'id': symbol_id_counter, 'tipo': token_type, 'lineas': set([line])}
     
     print(f"DEBUG: Actualizando tabla de símbolos - Nombre: {name}, Tipo: {token_type}, Línea: {line}")
     print(f"DEBUG: Contenido actual de la tabla de símbolos: {symbol_table}")
@@ -301,126 +299,112 @@ def evaluate(node):
         elif node[0] == 'id':
             if node[1] in symbol_table:
                 value = symbol_table[node[1]].get('value')
-                if value is None:
-                    print(f"Advertencia: La variable '{node[1]}' no tiene un valor asignado.")
-                    return None, f"{node[1]}:{symbol_table[node[1]].get('type', 'undefined')}=None"
-                return value, f"{node[1]}:{symbol_table[node[1]].get('type', 'undefined')}={format_value(value)}"
+                return value, f"{node[1]}:{symbol_table[node[1]].get('tipo', 'undefined')}={format_value(value)}"
             else:
-                error_msg = f"Error: Variable '{node[1]}' no definida"
+                error_msg = f"Error semántico: Variable '{node[1]}' no declarada"
                 print(error_msg)
+                error_display.insert(tk.END, error_msg + "\n")
                 return None, error_msg
-        elif node[0] == 'boolean':
-            return node[1] == 'true', str(node[1])
         elif node[0] == 'binop':
             left_val, left_str = evaluate(node[2])
             right_val, right_str = evaluate(node[3])
             if left_val is None or right_val is None:
-                error_msg = f"Error en {left_str} {node[1]} {right_str}"
+                error_msg = f"Error en operación binaria: {left_str} {node[1]} {right_str}"
                 print(error_msg)
+                error_display.insert(tk.END, error_msg + "\n")
                 return None, error_msg
             
             try:
-                if node[1] in ['+', '-', '*', '/', '^']:
-                    if node[1] == '+':
-                        result = left_val + right_val
-                    elif node[1] == '-':
-                        result = left_val - right_val
-                    elif node[1] == '*':
-                        result = left_val * right_val
-                    elif node[1] == '/':
-                        if right_val == 0:
-                            error_msg = f"Error: División por cero ({left_str} / {right_str})"
-                            print(error_msg)
-                            return None, error_msg
-                        result = left_val / right_val
-                    elif node[1] == '^':
-                        result = left_val ** right_val
-                elif node[1] in ['<', '<=', '>', '>=', '==', '!=']:
-                    if node[1] == '<':
-                        result = left_val < right_val
-                    elif node[1] == '<=':
-                        result = left_val <= right_val
-                    elif node[1] == '>':
-                        result = left_val > right_val
-                    elif node[1] == '>=':
-                        result = left_val >= right_val
-                    elif node[1] == '==':
-                        result = left_val == right_val
-                    elif node[1] == '!=':
-                        result = left_val != right_val
+                if node[1] == '+':
+                    result = left_val + right_val
+                elif node[1] == '-':
+                    result = left_val - right_val
+                elif node[1] == '*':
+                    result = left_val * right_val
+                elif node[1] == '/':
+                    if right_val == 0:
+                        error_msg = f"Error: División por cero ({left_str} / {right_str})"
+                        print(error_msg)
+                        error_display.insert(tk.END, error_msg + "\n")
+                        return None, error_msg
+                    result = left_val / right_val
+                elif node[1] == '<':
+                    result = left_val < right_val
+                elif node[1] == '<=':
+                    result = left_val <= right_val
+                elif node[1] == '>':
+                    result = left_val > right_val
+                elif node[1] == '>=':
+                    result = left_val >= right_val
+                elif node[1] == '==':
+                    result = left_val == right_val
+                elif node[1] == '!=':
+                    result = left_val != right_val
                 else:
                     error_msg = f"Error: Operador desconocido: {node[1]}"
                     print(error_msg)
+                    error_display.insert(tk.END, error_msg + "\n")
                     return None, error_msg
 
                 return result, f"({left_str} {node[1]} {right_str} = {format_value(result)})"
             except Exception as e:
                 error_msg = f"Error en operación {node[1]}: {str(e)}"
                 print(error_msg)
+                error_display.insert(tk.END, error_msg + "\n")
                 return None, error_msg
-        elif node[0] == 'unary_minus':
-            val, str_rep = evaluate(node[1])
-            if val is None:
-                return None, f"Error en unary_minus: {str_rep}"
-            result = -val
-            return result, f"(-{str_rep} = {format_value(result)})"
-        elif node[0] == 'group':
-            return evaluate(node[1])
+        elif node[0] == 'assign':
+            var_name = node[1][1]
+            if var_name not in symbol_table:
+                error_msg = f"Error semántico: Variable '{var_name}' no declarada"
+                print(error_msg)
+                error_display.insert(tk.END, error_msg + "\n")
+                return None, error_msg
+            
+            value, value_str = evaluate(node[2])
+            if value is None:
+                error_msg = f"Error: No se puede asignar un valor inválido a {var_name}"
+                print(error_msg)
+                error_display.insert(tk.END, error_msg + "\n")
+                return None, error_msg
+            
+            var_type = symbol_table[var_name]['tipo']
+            try:
+                if var_type == 'int':
+                    value = int(value)
+                elif var_type == 'float':
+                    value = float(value)
+                elif var_type == 'bool':
+                    value = bool(value)
+                symbol_table[var_name]['value'] = value
+                return value, f"{var_name}:{var_type}={format_value(value)}"
+            except ValueError as e:
+                error_msg = f"Error: No se puede convertir '{value}' a {var_type}: {str(e)}"
+                print(error_msg)
+                error_display.insert(tk.END, error_msg + "\n")
+                return None, error_msg
         elif node[0] == 'program':
-            evaluate(node[1])  # declaraciones
-            return evaluate(node[2])  # sentencias
-        elif node[0] == 'declarations':
-            for decl in node[1]:
-                evaluate(decl)
-            return None, "Declaraciones procesadas"
+            for stmt in node[1:]:
+                evaluate(stmt)
+            return None, "Programa ejecutado"
+        elif node[0] == 'statements':
+            for stmt in node[1]:
+                evaluate(stmt)
+            return None, "Sentencias ejecutadas"
         elif node[0] == 'declaration':
             var_type = node[1][1]
             for var in node[2]:
-                symbol_table[var] = {'type': var_type, 'value': None}
+                symbol_table[var] = {'tipo': var_type, 'value': None}
             return None, f"Variables declaradas: {', '.join(node[2])} (Tipo: {var_type})"
-        elif node[0] == 'statements':
-            results = []
-            for stmt in node[1]:
-                result = evaluate(stmt)
-                if result[0] is not None:
-                    results.append(result[1])
-            return None, "; ".join(results)
-        elif node[0] == 'assign':
-            value, value_str = evaluate(node[2])
-            var_name = node[1][1]
-            if var_name in symbol_table:
-                var_type = symbol_table[var_name].get('type', 'undefined')
-                try:
-                    if value is None:
-                        error_msg = f"Error: No se puede asignar None a {var_name}"
-                        print(error_msg)
-                        return None, error_msg
-                    if var_type == 'int':
-                        value = int(value)
-                    elif var_type == 'float':
-                        value = float(value)
-                    elif var_type == 'bool':
-                        value = bool(value)
-                    symbol_table[var_name]['value'] = value
-                    return value, f"{var_name}:{var_type}={format_value(value)}"
-                except ValueError as e:
-                    error_msg = f"Error: No se puede convertir '{value}' a {var_type}: {str(e)}"
-                    print(error_msg)
-                    return None, error_msg
-            else:
-                error_msg = f"Error: Variable '{var_name}' no definida"
-                print(error_msg)
-                return None, error_msg
         elif node[0] == 'write':
             value, value_str = evaluate(node[1])
-            print(format_value(value))
+            print(f"Salida: {format_value(value)}")
             return value, f"write({value_str})"
         elif node[0] == 'if':
-            condition_value, condition_str = evaluate(node[1])
-            return condition_value, f"if condition: ({condition_str}) = {format_value(condition_value)}"
-        elif node[0] == 'do_until':
-            condition_value, condition_str = evaluate(node[2])
-            return condition_value, f"do-until condition: ({condition_str}) = {format_value(condition_value)}"
+            condition, condition_str = evaluate(node[1])
+            if condition:
+                return evaluate(node[2])
+            else:
+                return evaluate(node[3])
     return None, f"Nodo no evaluable: {node}"
 
 def semantic_error(message, node):
@@ -449,29 +433,19 @@ def analyze():
     lexer.lineno = 1
     error_display.delete('1.0', tk.END)
     
-    lexer.input(input_text)
-    tokens = list(lexer)
-    
-    for token in tokens:
-        print(f"Token: {token.type}, Valor: {token.value}, Línea: {token.lineno}")
-        if token.type == 'ID':
-            update_symbol_table(token.value, token.type, token.lineno)
-    
-    display_tokens(tokens)
-    
-    result = parser.parse(input_text, lexer=lexer)
-    print(f"DEBUG: Resultado del parsing: {result}")
-    
-    display_symbol_table()
-    
-    if result:
-        _, evaluation_result = evaluate(result)
-        print("Resultado de la evaluación:", evaluation_result)
-        if "Error:" in evaluation_result:
-            error_display.insert(tk.END, evaluation_result + "\n")
-    
-    display_syntax_tree(result if result else 'Errores en el análisis')
-    
+    try:
+        result = parser.parse(input_text, lexer=lexer)
+        print(f"DEBUG: Resultado del parsing: {result}")
+        
+        if result:
+            evaluate(result)
+        
+        display_symbol_table()
+        display_syntax_tree(result if result else 'Errores en el análisis')
+    except Exception as e:
+        error_msg = f"Error durante el análisis: {str(e)}"
+        print(error_msg)
+        error_display.insert(tk.END, error_msg + "\n")
     
     
     
