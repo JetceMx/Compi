@@ -116,7 +116,7 @@ def t_newline(t):
 
 # Manejo de errores léxicos
 def t_error(t):
-    error_msg = f"Carácter ilegal '{t.value[0]}' en la línea {t.lineno}, posición {t.lexpos}\n"
+    error_msg = f"Error léxico en la línea {t.lineno}: Carácter ilegal '{t.value[0]}'\n"
     error_display.insert(tk.END, error_msg)
     t.lexer.skip(1)
 
@@ -166,6 +166,7 @@ def p_declarations(p):
 
 def p_declaration(p):
     '''declaration : type declaration_list SEMI'''
+    print(f"Declaración en la línea {p.lineno(1)}")  # Añadir este print
     for var in p[2]:
         update_symbol_table(var, p[1][1], p.lineno(1))
     p[0] = ('declaration', p[1], p[2])
@@ -277,11 +278,13 @@ def p_empty(p):
 # Manejo de errores sintácticos
 def p_error(p):
     if p:
-        error_msg = f"Error sintáctico en la línea {p.lineno}: Token inesperado '{p.value}'\n"
-        error_display.insert(tk.END, error_msg)
+        # Calcular la línea real basada en el texto de entrada
+        line = 1 + input_text[:p.lexpos].count('\n')
+        column = p.lexpos - input_text.rfind('\n', 0, p.lexpos)
+        error_msg = f"Error sintáctico en la línea {line}, columna {column}: Token inesperado '{p.value}'\n"
     else:
-        error_msg = "Error sintáctico en el EOF\n"
-        error_display.insert(tk.END, error_msg)
+        error_msg = "Error sintáctico: Fin inesperado de entrada\n"
+    error_display.insert(tk.END, error_msg)
         
 def evaluate(node):
     def format_value(value):
@@ -330,6 +333,7 @@ def evaluate(node):
                     elif node[1] == '/':
                         if right_val == 0:
                             error_msg = f"Error: División por cero ({left_str} / {right_str})"
+                            error_display.insert(tk.END, error_msg)
                             print(error_msg)
                             return None, error_msg
                         result = left_val / right_val
@@ -356,6 +360,7 @@ def evaluate(node):
                 return result, f"({left_str} {node[1]} {right_str} = {format_value(result)})"
             except Exception as e:
                 error_msg = f"Error en operación {node[1]}: {str(e)}"
+                error_display.insert(tk.END, error_msg + "\n")
                 print(error_msg)
                 return None, error_msg
         elif node[0] == 'unary_minus':
@@ -431,12 +436,14 @@ def semantic_error(message, node):
     
 
 # Crear el analizador sintáctico
-parser = yacc.yacc()
+parser = yacc.yacc(debug=True)
 
 
 
 # Funciones de la interfaz gráfica
 def analyze():
+    global input_text  # Hacer input_text global para que p_error pueda acceder a ella
+    input_text = text_area.get("1.0", tk.END)
     global symbol_table, symbol_id_counter, total_lines
     symbol_table.clear()
     symbol_id_counter = 0
@@ -459,7 +466,10 @@ def analyze():
     
     display_tokens(tokens)
     
-    result = parser.parse(input_text, lexer=lexer)
+    # Reiniciar el lexer para el parsing
+    lexer.input(input_text)
+    lexer.lineno = 1  # Asegurarse de reiniciar el contador de líneas nuevamente
+    result = parser.parse(input_text, lexer=lexer, tracking=True)
     print(f"DEBUG: Resultado del parsing: {result}")
     
     display_symbol_table()
@@ -471,9 +481,16 @@ def analyze():
             error_display.insert(tk.END, evaluation_result + "\n")
     
     display_syntax_tree(result if result else 'Errores en el análisis')
-    
-    
-    
+
+import logging
+logging.basicConfig(
+    level = logging.DEBUG,
+    filename = "parselog.txt",
+    filemode = "w",
+    format = "%(filename)10s:%(lineno)4d:%(message)s"
+)
+log = logging.getLogger()
+parser = yacc.yacc(debug=True, errorlog=log)
     
 
 def display_tokens(tokens):
