@@ -587,7 +587,7 @@ def save_file():
 
 # Crear la ventana principal
 root = tk.Tk()
-root.title("Analizador Léxico, Sintáctico y Semántico")
+root.title("Compilador By Jetce_Mx(Esau) y Wizardkiller117(Sebas)")
 
 # Crear un Notebook para las pestañas
 notebook = ttk.Notebook(root)
