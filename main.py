@@ -135,19 +135,17 @@ def update_symbol_table(name, token_type, line):
     global symbol_table, symbol_id_counter, total_lines
     if name not in symbol_table:
         symbol_id_counter += 1
-        symbol_table[name] = {'id': symbol_id_counter, 'tipo': 'undefined', 'lineas': set()}
+        symbol_table[name] = {'id': symbol_id_counter, 'tipo': 'undefined', 'lineas': []}
     
     if token_type in ['int', 'float', 'bool'] or (symbol_table[name]['tipo'] in ['undefined', 'ID'] and token_type != 'ID'):
         symbol_table[name]['tipo'] = token_type
     
     # Solo agregamos líneas válidas (mayores que 0 y no mayores que el total de líneas)
     if 0 < line <= total_lines:
-        symbol_table[name]['lineas'].add(line)
+        symbol_table[name]['lineas'].append(line)
     else:
         print(f"DEBUG: Línea inválida detectada: {line} para {name}")
     
-    print(f"DEBUG: Actualizando tabla de símbolos - Nombre: {name}, Tipo: {token_type}, Línea: {line}")
-    print(f"DEBUG: Contenido actual de la tabla de símbolos: {symbol_table}")
     
 # Definir la gramática
 def p_program(p):
@@ -576,7 +574,7 @@ def display_symbol_table():
     for item in symbol_tree.get_children():
         symbol_tree.delete(item)
     for name, info in symbol_table.items():
-        valid_lines = sorted(line for line in info['lineas'] if 0 < line <= total_lines)
+        valid_lines = [line for line in info['lineas'] if 0 < line <= total_lines]
         invalid_lines = [line for line in info['lineas'] if line > total_lines]
         if invalid_lines:
             print(f"ADVERTENCIA: Líneas fuera de rango detectadas para {name}: {invalid_lines}")
