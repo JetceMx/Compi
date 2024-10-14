@@ -625,14 +625,36 @@ tree_frame = ttk.Frame(notebook)
 notebook.add(tree_frame, text="Árbol Sintáctico")
 
 # Crear área de texto para el código
-text_area = scrolledtext.ScrolledText(code_frame, height=20, wrap=tk.WORD)
-text_area.pack(fill='both', expand=True, padx=10, pady=10)
+text_frame = tk.Frame(code_frame)
+text_frame.pack(fill='both', expand=True, padx=10, pady=10)
 
+text_area = scrolledtext.ScrolledText(text_frame, wrap=tk.NONE, undo=True)
+text_area.pack(side=tk.RIGHT, fill='both', expand=True)
 
+line_numbers = tk.Text(text_frame, width=4, padx=3, takefocus=0, border=0,
+                       background='lightgrey', state='disabled')
+line_numbers.pack(side=tk.LEFT, fill='y')
 
-# Aplicar el resaltado de sintaxis
+def update_line_numbers(event=None):
+    line_numbers.config(state='normal')
+    line_numbers.delete('1.0', tk.END)
+    num_lines = text_area.get('1.0', tk.END).count('\n')
+    for i in range(1, num_lines + 1):
+        line_numbers.insert(tk.END, f"{i}\n")
+    line_numbers.config(state='disabled')
+    line_numbers.yview_moveto(text_area.yview()[0])
+
+text_area.bind('<KeyRelease>', update_line_numbers)
+text_area.bind('<MouseWheel>', update_line_numbers)
+
+def on_text_scroll(*args):
+    line_numbers.yview_moveto(args[0])
+text_area.vbar.config(command=lambda *args: (text_area.yview(*args), on_text_scroll(*args)))
+
 color_delegator = CustomColorDelegator()
 Percolator(text_area).insertfilter(color_delegator)
+
+update_line_numbers()
 
 # Botón para ejecutar el análisis
 analyze_button = tk.Button(code_frame, text="Analizar", command=analyze)
