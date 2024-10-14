@@ -6,6 +6,8 @@ from idlelib.colorizer import ColorDelegator
 from idlelib.percolator import Percolator
 import re
 
+division_by_zero_reported = False
+
 # Palabras reservadas
 reserved = {
     'program': 'PROGRAM',
@@ -286,7 +288,9 @@ def p_error(p):
         error_msg = "Error sintáctico: Fin inesperado de entrada\n"
     error_display.insert(tk.END, error_msg)
         
-def evaluate(node):
+def evaluate(node, error_reported=False):
+    global division_by_zero_reported
+    
     def format_value(value):
         if value is None:
             return "None"
@@ -314,54 +318,43 @@ def evaluate(node):
                 return None, error_msg
         elif node[0] == 'boolean':
             return node[1] == 'true', str(node[1])
-        elif node[0] == 'binop':
+        if node[0] == 'binop':
             left_val, left_str = evaluate(node[2])
             right_val, right_str = evaluate(node[3])
+            
             if left_val is None or right_val is None:
-                error_msg = f"Error en {left_str} {node[1]} {right_str}"
-                print(error_msg)
-                return None, error_msg
+                return None, f"Error en {left_str} {node[1]} {right_str}"
             
             try:
-                if node[1] in ['+', '-', '*', '/', '^']:
-                    if node[1] == '+':
-                        result = left_val + right_val
-                    elif node[1] == '-':
-                        result = left_val - right_val
-                    elif node[1] == '*':
-                        result = left_val * right_val
-                    elif node[1] == '/':
-                        if right_val == 0:
+                if node[1] == '/':
+                    if right_val == 0:
+                        if not division_by_zero_reported:
                             error_msg = f"Error: División por cero ({left_str} / {right_str})"
-                            error_display.insert(tk.END, error_msg)
+                            error_display.insert(tk.END, error_msg + "\n")
                             print(error_msg)
-                            return None, error_msg
-                        result = left_val / right_val
-                    elif node[1] == '^':
-                        result = left_val ** right_val
+                            division_by_zero_reported = True
+                        return None, "División por cero"
+                    result = left_val / right_val
+                elif node[1] == '+':
+                    result = left_val + right_val
+                elif node[1] == '-':
+                    result = left_val - right_val
+                elif node[1] == '*':
+                    result = left_val * right_val
+                elif node[1] == '^':
+                    result = left_val ** right_val
                 elif node[1] in ['<', '<=', '>', '>=', '==', '!=']:
-                    if node[1] == '<':
-                        result = left_val < right_val
-                    elif node[1] == '<=':
-                        result = left_val <= right_val
-                    elif node[1] == '>':
-                        result = left_val > right_val
-                    elif node[1] == '>=':
-                        result = left_val >= right_val
-                    elif node[1] == '==':
-                        result = left_val == right_val
-                    elif node[1] == '!=':
-                        result = left_val != right_val
+                    result = eval(f"{left_val} {node[1]} {right_val}")
                 else:
-                    error_msg = f"Error: Operador desconocido: {node[1]}"
-                    print(error_msg)
-                    return None, error_msg
+                    return None, f"Operador desconocido: {node[1]}"
 
                 return result, f"({left_str} {node[1]} {right_str} = {format_value(result)})"
+
             except Exception as e:
                 error_msg = f"Error en operación {node[1]}: {str(e)}"
-                error_display.insert(tk.END, error_msg + "\n")
-                print(error_msg)
+                if not division_by_zero_reported:
+                    error_display.insert(tk.END, error_msg + "\n")
+                    print(error_msg)
                 return None, error_msg
         elif node[0] == 'unary_minus':
             val, str_rep = evaluate(node[1])
@@ -442,9 +435,9 @@ parser = yacc.yacc(debug=True)
 
 # Funciones de la interfaz gráfica
 def analyze():
-    global input_text  # Hacer input_text global para que p_error pueda acceder a ella
+    global input_text, symbol_table, symbol_id_counter, total_lines, division_by_zero_reported
     input_text = text_area.get("1.0", tk.END)
-    global symbol_table, symbol_id_counter, total_lines
+    division_by_zero_reported = False
     symbol_table.clear()
     symbol_id_counter = 0
     print("DEBUG: Tabla de símbolos reiniciada")
@@ -475,10 +468,9 @@ def analyze():
     display_symbol_table()
     
     if result:
+        error_display.delete('1.0', tk.END)  # Limpiar errores anteriores
         _, evaluation_result = evaluate(result)
         print("Resultado de la evaluación:", evaluation_result)
-        if "Error:" in evaluation_result:
-            error_display.insert(tk.END, evaluation_result + "\n")
     
     display_syntax_tree(result if result else 'Errores en el análisis')
 
@@ -499,20 +491,19 @@ def display_tokens(tokens):
     for token in tokens:
         token_tree.insert('', 'end', values=(token.type, token.value, token.lineno, token.lexpos))
 
-def display_tree_node(node, parent_id=""):
+def display_tree_node(node, parent_id="", error_reported=False):
     if isinstance(node, tuple):
         node_type = str(node[0])
         try:
             if node_type == 'binop':
-                _, result_str = evaluate(node)
-                text = f"Operation: {result_str}"
+                result, result_str = evaluate(node)
+                if result is None:
+                    text = f"Error: {result_str}"
+                else:
+                    text = f"Operation: {result_str}"
             elif node_type in ['number', 'boolean']:
                 value, _ = evaluate(node)
-                if isinstance(value, float) and value.is_integer():
-                    result_str = str(int(value))
-                else:
-                    result_str = str(value)
-                text = f"{node_type.capitalize()}: {result_str}"
+                text = f"{node_type.capitalize()}: {value}"
             elif node_type == 'id':
                 _, result_str = evaluate(node)
                 text = f"ID: {result_str}"
@@ -540,8 +531,6 @@ def display_tree_node(node, parent_id=""):
         for item in node:
             display_tree_node(item, parent_id)
     else:
-        if isinstance(node, float) and node.is_integer():
-            node = int(node)
         annotated_tree.insert(parent_id, 'end', text=f"Value: {node}")
 
 def display_annotated_node(node, parent_id=""):
@@ -556,9 +545,9 @@ def display_annotated_node(node, parent_id=""):
 def display_syntax_tree(syntax_tree):
     annotated_tree.delete(*annotated_tree.get_children())
     if isinstance(syntax_tree, str):  # Si hubo errores
-        tree_view.reattach('', 'end', text=syntax_tree)
+        annotated_tree.insert('', 'end', text=syntax_tree)
     else:
-        display_tree_node(syntax_tree, "")
+        display_tree_node(syntax_tree, "", False)
 
 def display_annotated_tree(syntax_tree):
     tree_view.delete(*tree_view.get_children())
