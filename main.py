@@ -417,8 +417,15 @@ def evaluate(node, error_reported=False):
             condition_value, condition_str = evaluate(node[1])
             return condition_value, f"if condition: ({condition_str}) = {format_value(condition_value)}"
         elif node[0] == 'do_until':
-            condition_value, condition_str = evaluate(node[2])
-            return condition_value, f"do-until condition: ({condition_str}) = {format_value(condition_value)}"
+            body, condition = node[1], node[2]
+            body_result = evaluate(body)
+            condition_value, condition_str = evaluate(condition)
+            return None, f"do-until structure: body ({body_result[1]}), condition ({condition_str})"
+        elif node[0] == 'while':
+            condition, body = node[1], node[2]
+            condition_value, condition_str = evaluate(condition)
+            body_result = evaluate(body)
+            return None, f"while structure: condition ({condition_str}), body ({body_result[1]})"
     return None, f"Nodo no evaluable: {node}"
 
 def semantic_error(message, node):
@@ -517,6 +524,14 @@ def display_tree_node(node, parent_id="", error_reported=False):
                 var_type = node[1][1]
                 var_names = ', '.join(node[2])
                 text = f"Declaration: {var_type} {var_names}"
+            elif node_type == 'do_until':
+                body_str = evaluate(node[1])[1]
+                condition_str = evaluate(node[2])[1]
+                text = f"Do-Until: body ({body_str}), until ({condition_str})"
+            elif node_type == 'while':
+                condition_str = evaluate(node[1])[1]
+                body_str = evaluate(node[2])[1]
+                text = f"While: condition ({condition_str}), body ({body_str})"
             else:
                 _, result_str = evaluate(node)
                 text = f"{node_type}: {result_str}"
