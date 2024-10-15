@@ -399,6 +399,11 @@ def evaluate(node, error_reported=False):
                         print(error_msg)
                         return None, error_msg
                     if var_type == 'int':
+                        if isinstance(value, float) and value != float(int(value)):
+                            error_msg = f"Error: No se puede asignar un flotante '{value}' a la variable entera '{var_name}'"
+                            error_display.insert(tk.END, error_msg + "\n")
+                            print(error_msg)
+                            return None, error_msg
                         value = int(value)
                     elif var_type == 'float':
                         value = float(value)
