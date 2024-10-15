@@ -89,7 +89,10 @@ t_RBRACE = r'\}'
 # Números
 def t_NUMBER(t):
     r'\d+(\.\d+)?'
-    t.value = float(t.value)
+    if '.' in t.value:
+        t.value = float(t.value)
+    else:
+        t.value = int(t.value)
     return t
 
 # Identificadores y palabras reservadas
@@ -260,11 +263,9 @@ def p_factor(p):
         if isinstance(p[1], (int, float)):
             p[0] = ('number', p[1])
         elif p[1] in ['true', 'false']:
-            p[0] = ('boolean', p[1])
+            p[0] = ('boolean', p[1] == 'true')
         else:
             p[0] = ('id', p[1])
-    elif len(p) == 3:  # Caso para el menos unario
-        p[0] = ('unary_minus', p[2])
     else:
         p[0] = ('group', p[2])
         
@@ -285,20 +286,20 @@ def p_error(p):
     else:
         error_msg = "Error sintáctico: Fin inesperado de entrada\n"
     error_display.insert(tk.END, error_msg)
+
+def format_value(value):
+    if value is None:
+        return "None"
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return f"{value:.2f}" if value % 1 != 0 else str(int(value))
+    return str(value)
         
 def evaluate(node, error_reported=False):
     global division_by_zero_reported
-    
-    def format_value(value):
-        if value is None:
-            return "None"
-        if isinstance(value, bool):
-            return str(value).lower()
-        if isinstance(value, int):
-            return str(value)
-        elif isinstance(value, float):
-            return f"{value:.2f}" if value % 1 != 0 else str(int(value))
-        return str(value)
 
     if isinstance(node, tuple):
         if node[0] == 'number':
@@ -514,11 +515,11 @@ def display_tree_node(node, parent_id="", error_reported=False):
                     text = f"Operation: {result_str}"
             elif node_type == 'number':
                 value, _ = evaluate(node)
-                data_type = 'int' if isinstance(value, int) else 'float'
-                text = f"Number: {value}"
+                value_type = 'int' if isinstance(value, int) else 'float'
+                text = f"Number ({value_type}): {format_value(value)}"
             elif node_type == 'boolean':
                 value, _ = evaluate(node)
-                text = f"Boolean: {value}"
+                text = f"Boolean: {str(value).lower()}"
             elif node_type == 'id':
                 _, result_str = evaluate(node)
                 text = f"ID: {result_str}"
