@@ -305,20 +305,15 @@ def evaluate(node, error_reported=False):
             return node[1], format_value(node[1])
         elif node[0] == 'id':
             if node[1] in symbol_table:
-                if symbol_table[node[1]].get('tipo') == 'Variable':
-                    error_msg = f"Error: Variable '{node[1]}' no declarada"
-                    error_display.insert(tk.END, error_msg + "\n")
-                    print(error_msg)  # Mantener la impresión en consola si es necesario
-                    return None, error_msg
                 value = symbol_table[node[1]].get('value')
                 if value is None:
                     print(f"Advertencia: La variable '{node[1]}' no tiene un valor asignado.")
                     return None, f"{node[1]}:{symbol_table[node[1]].get('type', 'undefined')}=None"
                 return value, f"{node[1]}:{symbol_table[node[1]].get('type', 'undefined')}={format_value(value)}"
+            
             else:
                 error_msg = f"Error: Variable '{node[1]}' no definida"
-                error_display.insert(tk.END, error_msg + "\n")
-                print(error_msg)  # Mantener la impresión en consola si es necesario
+                print(error_msg)
                 return None, error_msg
         elif node[0] == 'boolean':
             return node[1] == 'true', str(node[1])
@@ -512,9 +507,13 @@ def display_tree_node(node, parent_id="", error_reported=False):
                     text = f"Error: {result_str}"
                 else:
                     text = f"Operation: {result_str}"
-            elif node_type in ['number', 'boolean']:
+            elif node_type == 'number':
                 value, _ = evaluate(node)
-                text = f"{node_type.capitalize()}: {value}"
+                data_type = 'int' if isinstance(value, int) else 'float'
+                text = f"Number: {value}"
+            elif node_type == 'boolean':
+                value, _ = evaluate(node)
+                text = f"Boolean: {value}"
             elif node_type == 'id':
                 _, result_str = evaluate(node)
                 text = f"ID: {result_str}"
@@ -550,7 +549,16 @@ def display_tree_node(node, parent_id="", error_reported=False):
         for item in node:
             display_tree_node(item, parent_id)
     else:
-        annotated_tree.insert(parent_id, 'end', text=f"Value: {node}")
+        # Aquí es donde manejamos los valores simples (Value: x, y, z)
+        if isinstance(node, (int, float)):
+            data_type = 'int' if isinstance(node, int) else 'float'
+            text = f"Value: {node} (Type: {data_type})"
+        elif isinstance(node, str) and node in symbol_table:
+            var_type = symbol_table[node].get('type', 'undefined')
+            text = f"Value: {node} (Type: {var_type})"
+        else:
+            text = f"Value: {node}"
+        annotated_tree.insert(parent_id, 'end', text=text)
 
 def display_annotated_node(node, parent_id=""):
     if isinstance(node, tuple):
@@ -610,7 +618,7 @@ root.title("Compilador By Jetce_Mx(Esau) y Wizardkiller117(Sebas)")
 
 # Crear un Notebook para las pestañas
 notebook = ttk.Notebook(root)
-notebook.pack(fill='both', expand='yes', side=tk.LEFT)
+notebook.pack( side=tk.LEFT)
 
 # Pestaña de código
 code_frame = ttk.Frame(notebook)
