@@ -6,6 +6,8 @@ from idlelib.colorizer import ColorDelegator
 from idlelib.percolator import Percolator
 import re
 
+error_set = set()
+
 division_by_zero_reported = False
 
 # Palabras reservadas
@@ -121,8 +123,8 @@ def t_newline(t):
 
 # Manejo de errores léxicos
 def t_error(t):
-    error_msg = f"Error léxico en la línea {t.lineno}: Carácter ilegal '{t.value[0]}'\n"
-    error_display.insert(tk.END, error_msg)
+    error_msg = f"Error léxico en la línea {t.lineno}: Carácter ilegal '{t.value[0]}'"
+    add_error(error_msg)
     t.lexer.skip(1)
 
 # Crear el analizador léxico
@@ -279,13 +281,12 @@ def p_empty(p):
 # Manejo de errores sintácticos
 def p_error(p):
     if p:
-        # Calcular la línea real basada en el texto de entrada
         line = 1 + input_text[:p.lexpos].count('\n')
         column = p.lexpos - input_text.rfind('\n', 0, p.lexpos)
-        error_msg = f"Error sintáctico en la línea {line}, columna {column}: Token inesperado '{p.value}'\n"
+        error_msg = f"Error sintáctico en la línea {line}, columna {column}: Token inesperado '{p.value}'"
     else:
-        error_msg = "Error sintáctico: Fin inesperado de entrada\n"
-    error_display.insert(tk.END, error_msg)
+        error_msg = "Error sintáctico: Fin inesperado de entrada"
+    add_error(error_msg)
 
 def format_value(value):
     if value is None:
@@ -396,13 +397,12 @@ def evaluate(node, error_reported=False):
                 try:
                     if value is None:
                         error_msg = f"Error: No se puede asignar None a {var_name}"
-                        print(error_msg)
+                        add_error(error_msg)
                         return None, error_msg
                     if var_type == 'int':
                         if isinstance(value, float) and value != float(int(value)):
                             error_msg = f"Error: No se puede asignar un flotante '{value}' a la variable entera '{var_name}'"
-                            error_display.insert(tk.END, error_msg + "\n")
-                            print(error_msg)
+                            add_error(error_msg)
                             return None, error_msg
                         value = int(value)
                     elif var_type == 'float':
@@ -413,11 +413,11 @@ def evaluate(node, error_reported=False):
                     return value, f"{var_name}:{var_type}={format_value(value)}"
                 except ValueError as e:
                     error_msg = f"Error: No se puede convertir '{value}' a {var_type}: {str(e)}"
-                    print(error_msg)
+                    add_error(error_msg)
                     return None, error_msg
             else:
                 error_msg = f"Error: Variable '{var_name}' no definida"
-                print(error_msg)
+                add_error(error_msg)
                 return None, error_msg
         elif node[0] == 'write':
             value, value_str = evaluate(node[1])
@@ -448,15 +448,25 @@ def semantic_error(message, node):
 # Crear el analizador sintáctico
 parser = yacc.yacc(debug=True)
 
+def add_error(error_msg):
+    global error_set
+    error_set.add(error_msg)
 
+def display_errors():
+    global error_set
+    error_display.delete('1.0', tk.END)  # Limpiar errores anteriores
+    for error in sorted(error_set):
+        error_display.insert(tk.END, error + "\n")
+    error_set.clear()  # Limpiar el conjunto de errores después de mostrarlos
 
 # Funciones de la interfaz gráfica
 def analyze():
-    global input_text, symbol_table, symbol_id_counter, total_lines, division_by_zero_reported
+    global input_text, symbol_table, symbol_id_counter, total_lines, division_by_zero_reported, error_set
     input_text = text_area.get("1.0", tk.END)
     division_by_zero_reported = False
     symbol_table.clear()
     symbol_id_counter = 0
+    error_set.clear()  # Limpiar errores anteriores
     print("DEBUG: Tabla de símbolos reiniciada")
     
     input_text = text_area.get("1.0", tk.END)
@@ -489,6 +499,7 @@ def analyze():
         _, evaluation_result = evaluate(result)
         print("Resultado de la evaluación:", evaluation_result)
     
+    display_errors()
     display_syntax_tree(result if result else 'Errores en el análisis')
 
 import logging
