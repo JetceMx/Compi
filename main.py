@@ -452,7 +452,7 @@ def analyze():
     print(f"DEBUG: Total de líneas en el código fuente: {total_lines}")
     
     lexer.lineno = 1
-    error_display.delete('1.0', tk.END)
+    
     
     lexer.input(input_text)
     tokens = list(lexer)
@@ -461,16 +461,16 @@ def analyze():
         print(f"Token: {token.type}, Valor: {token.value}, Línea: {token.lineno}")
         if token.type == 'ID':
             update_symbol_table(token.value, token.type, token.lineno)
+    print(symbol_table)
     
     display_tokens(tokens)
     
-    # Reiniciar el lexer para el parsing
-    lexer.input(input_text)
-    lexer.lineno = 1  # Asegurarse de reiniciar el contador de líneas nuevamente
+   
     result = parser.parse(input_text, lexer=lexer, tracking=True)
     print(f"DEBUG: Resultado del parsing: {result}")
-    
+ 
     display_symbol_table()
+    print(symbol_table)
     
     if result:
         error_display.delete('1.0', tk.END)  # Limpiar errores anteriores
@@ -690,6 +690,10 @@ symbol_tree.heading("ID", text="ID")
 symbol_tree.heading("Nombre", text="Nombre")
 symbol_tree.heading("Tipo", text="Tipo")
 symbol_tree.heading("Líneas", text="Líneas")
+symbol_tree.column("ID", width=10)  # Ajusta este valor según lo delgado que quieras
+symbol_tree.column("Nombre", width=10)  # Puedes ajustar los valores de ancho
+symbol_tree.column("Tipo", width=10)  # Ajusta a tu preferencia
+symbol_tree.column("Líneas", width=200)  # Establece el ancho deseado
 scrollbar_symbol = ttk.Scrollbar(symbol_frame, orient="vertical", command=symbol_tree.yview)
 symbol_tree.configure(yscrollcommand=scrollbar_symbol.set)
 scrollbar_symbol.pack(side=tk.RIGHT, fill=tk.Y)
