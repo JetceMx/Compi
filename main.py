@@ -305,6 +305,11 @@ def evaluate(node, error_reported=False):
             return node[1], format_value(node[1])
         elif node[0] == 'id':
             if node[1] in symbol_table:
+                if symbol_table[node[1]].get('tipo') == 'Variable':
+                    error_msg = f"Error: Variable '{node[1]}' no declarada"
+                    error_display.insert(tk.END, error_msg + "\n")
+                    print(error_msg)  # Mantener la impresión en consola si es necesario
+                    return None, error_msg
                 value = symbol_table[node[1]].get('value')
                 if value is None:
                     print(f"Advertencia: La variable '{node[1]}' no tiene un valor asignado.")
@@ -312,7 +317,8 @@ def evaluate(node, error_reported=False):
                 return value, f"{node[1]}:{symbol_table[node[1]].get('type', 'undefined')}={format_value(value)}"
             else:
                 error_msg = f"Error: Variable '{node[1]}' no definida"
-                print(error_msg)
+                error_display.insert(tk.END, error_msg + "\n")
+                print(error_msg)  # Mantener la impresión en consola si es necesario
                 return None, error_msg
         elif node[0] == 'boolean':
             return node[1] == 'true', str(node[1])
