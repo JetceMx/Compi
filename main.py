@@ -341,6 +341,10 @@ def evaluate(node, error_reported=False):
                             division_by_zero_reported = True
                         return None, "División por cero"
                     result = left_val / right_val
+                    if isinstance(left_val, int) and isinstance(right_val, int):
+                        result = left_val // right_val  # División entera
+                    else:
+                        result = left_val / right_val  # División normal (flotante)
                 elif node[1] == '+':
                     result = left_val + right_val
                 elif node[1] == '-':
