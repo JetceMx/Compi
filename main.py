@@ -324,6 +324,7 @@ lexer = lex.lex()
 symbol_table = {}
 symbol_id_counter = 0
 total_lines = 0
+output_buffer = []
 
 
 def update_symbol_table(name, token_type, line):
@@ -504,7 +505,7 @@ def evaluate(node, error_reported=False):
                 if symbol_table[node[1]].get('tipo') == 'Variable':
                     error_msg = f"Error: Variable '{node[1]}' no declarada"
                     error_display.insert(tk.END, error_msg + "\n")
-                    print(error_msg)  # Mantener la impresión en consola si es necesario
+                    print(error_msg)
                     return None, error_msg
                 value = symbol_table[node[1]].get('value')
                 if value is None:
@@ -514,11 +515,11 @@ def evaluate(node, error_reported=False):
             else:
                 error_msg = f"Error: Variable '{node[1]}' no definida"
                 error_display.insert(tk.END, error_msg + "\n")
-                print(error_msg)  # Mantener la impresión en consola si es necesario
+                print(error_msg)
                 return None, error_msg
         elif node[0] == 'boolean':
             return node[1] == 'true', str(node[1])
-        if node[0] == 'binop':
+        elif node[0] == 'binop':
             left_val, left_str = evaluate(node[2])
             right_val, right_str = evaluate(node[3])
             
@@ -536,9 +537,9 @@ def evaluate(node, error_reported=False):
                         return None, "División por cero"
                     result = left_val / right_val
                     if isinstance(left_val, int) and isinstance(right_val, int):
-                        result = left_val // right_val  # División entera
+                        result = left_val // right_val
                     else:
-                        result = left_val / right_val  # División normal (flotante)
+                        result = left_val / right_val
                 elif node[1] == '+':
                     result = left_val + right_val
                 elif node[1] == '-':
@@ -621,37 +622,93 @@ def evaluate(node, error_reported=False):
                 error_msg = f"Error: Variable '{var_name}' no definida"
                 add_error(error_msg)
                 return None, error_msg
-        elif node[0] == 'write':
+        if node[0] == 'write':
             value, value_str = evaluate(node[1])
-            print(format_value(value))
-            return value, f"write({value_str})"
+            if value is not None:
+                output_buffer.append(str(value))
+                return value, f"write({value_str})"
+            return None, f"Error en write: {value_str}"
+        elif node[0] == 'read':
+            var_name = node[1][1]
+            if var_name in symbol_table:
+                # Aquí podrías implementar la lógica para leer input del usuario
+                # Por ahora, simplemente asignamos un valor predeterminado
+                symbol_table[var_name]['value'] = 0
+                return 0, f"read -> {var_name}"
+            else:
+                error_msg = f"Error: Variable '{var_name}' no definida"
+                add_error(error_msg)
+                return None, error_msg
         elif node[0] == 'if':
             condition_val, condition_str = evaluate(node[1])
             if condition_val is not None:
-                if bool(condition_val):  # Si la condición es verdadera
-                    # Evaluar todas las declaraciones en el bloque then
-                    for stmt in node[2][1]:  # node[2][1] contiene la lista de statements del then
+                if bool(condition_val):
+                    for stmt in node[2][1]:
                         result, result_str = evaluate(stmt)
                         if result is not None:
                             return result, result_str
-                else:  # Si la condición es falsa y hay un else
-                    if node[3][1]:  # Verifica si hay bloque else
-                        # Evaluar todas las declaraciones en el bloque else
-                        for stmt in node[3][1]:  # node[3][1] contiene la lista de statements del else
+                else:
+                    if node[3][1]:
+                        for stmt in node[3][1]:
                             result, result_str = evaluate(stmt)
                             if result is not None:
                                 return result, result_str
             return None, "if statement completed"
-        elif node[0] == 'do_until':
-            body, condition = node[1], node[2]
-            body_result = evaluate(body)
-            condition_value, condition_str = evaluate(condition)
-            return None, f"do-until structure: body ({body_result[1]}), condition ({condition_str})"
         elif node[0] == 'while':
-            condition, body = node[1], node[2]
-            condition_value, condition_str = evaluate(condition)
-            body_result = evaluate(body)
-            return None, f"while structure: condition ({condition_str}), body ({body_result[1]})"
+            results = []
+            max_iterations = 1000  # Límite de seguridad para evitar bucles infinitos
+            iterations = 0
+            
+            while True:
+                condition_val, condition_str = evaluate(node[1][1])  # Evaluamos la condición
+                if condition_val is None:
+                    return None, f"Error en la condición del while: {condition_str}"
+                
+                if not bool(condition_val):  # Si la condición es falsa, salimos del bucle
+                    break
+                    
+                iterations += 1
+                if iterations > max_iterations:
+                    error_msg = "Error: Posible bucle infinito detectado en while"
+                    error_display.insert(tk.END, error_msg + "\n")
+                    return None, error_msg
+                
+                # Ejecutar el cuerpo del while
+                for stmt in node[2][1]:  # node[2][1] contiene la lista de statements
+                    result, result_str = evaluate(stmt)
+                    if result is not None:
+                        results.append(result_str)
+            
+            return None, f"while loop completed ({iterations} iterations): {'; '.join(results)}"
+            
+        elif node[0] == 'do_until':
+            results = []
+            max_iterations = 1000  # Límite de seguridad
+            iterations = 0
+            
+            while True:
+                iterations += 1
+                if iterations > max_iterations:
+                    error_msg = "Error: Posible bucle infinito detectado en do-until"
+                    error_display.insert(tk.END, error_msg + "\n")
+                    return None, error_msg
+                
+                # Ejecutar el cuerpo del do-until
+                for stmt in node[1][1]:  # node[1][1] contiene la lista de statements
+                    result, result_str = evaluate(stmt)
+                    if result is not None:
+                        results.append(result_str)
+                
+                # Evaluar la condición
+                condition_val, condition_str = evaluate(node[2][1])
+                if condition_val is None:
+                    return None, f"Error en la condición del do-until: {condition_str}"
+                
+                if bool(condition_val):  # Si la condición es verdadera, salimos del bucle
+                    break
+            
+            return None, f"do-until loop completed ({iterations} iterations): {'; '.join(results)}"
+
     return None, f"Nodo no evaluable: {node}"
 
 def semantic_error(message, node):
@@ -677,7 +734,12 @@ def display_errors():
 
 # Funciones de la interfaz gráfica
 def analyze():
-    global input_text, symbol_table, symbol_id_counter, total_lines, division_by_zero_reported, error_set
+    global input_text,output_text, symbol_table, symbol_id_counter, total_lines, division_by_zero_reported, error_set, output_buffer
+    
+    # Limpiar el buffer de salida al inicio del análisis
+    output_buffer.clear()
+    output_text.delete('1.0', tk.END)
+    
     input_text = text_area.get("1.0", tk.END)
     division_by_zero_reported = False
     symbol_table.clear()
@@ -718,6 +780,11 @@ def analyze():
         error_display.delete('1.0', tk.END)  # Limpiar errores anteriores
         _, evaluation_result = evaluate(result)
         print("Resultado de la evaluación:", evaluation_result)
+        # Mostrar la salida acumulada en el área de salida
+        if output_buffer:
+            output_text.insert(tk.END, "Salida del programa:\n")
+            for line in output_buffer:
+                output_text.insert(tk.END, f"{line}\n")
     
     display_errors()
     display_syntax_tree(result if result else 'Errores en el análisis')
@@ -881,6 +948,15 @@ notebook.add(tree_frame, text="Árbol Sintáctico")
 #Pestaña de Codigo P
 intermediate_code_frame = ttk.Frame(notebook)
 notebook.add(intermediate_code_frame, text="Código Intermedio")
+
+# 4. Añade esto en la sección de creación de la interfaz gráfica
+# Crear un nuevo frame para la salida del programa
+output_frame = ttk.Frame(notebook)
+notebook.add(output_frame, text="Salida del Programa")
+
+# Área de texto para la salida
+output_text = scrolledtext.ScrolledText(output_frame, wrap=tk.WORD, height=10)
+output_text.pack(fill='both', expand=True, padx=10, pady=10)
 
 intermediate_code_text = scrolledtext.ScrolledText(intermediate_code_frame, wrap=tk.WORD)
 intermediate_code_text.pack(fill='both', expand=True, padx=10, pady=10)
