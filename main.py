@@ -128,23 +128,31 @@ class CodeGenerator:
         
     def visit_if(self, node):
         condition = self.generate_code(node[1])
-        else_label = self.pcode.get_label()
         end_label = self.pcode.get_label()
         
-        self.pcode.emit('JUMPF', condition, None, else_label)
+        # Generar salto condicional
+        self.pcode.emit('JUMPF', condition, None, end_label)
         
+        # Generar código para el bloque then
         then_statements = node[2][1]
         for stmt in then_statements:
             self.generate_code(stmt)
-            
-        self.pcode.emit('JUMP', None, None, end_label)
-        self.pcode.emit('LABEL', None, None, else_label)
         
-        else_statements = node[3][1]
-        for stmt in else_statements:
-            self.generate_code(stmt)
+        # Si hay bloque else
+        if node[3][1]:  # Verificamos si hay statements en el else
+            else_label = self.pcode.get_label()
+            self.pcode.emit('JUMP', None, None, else_label)
+            self.pcode.emit('LABEL', None, None, end_label)
             
-        self.pcode.emit('LABEL', None, None, end_label)
+            # Generar código para el bloque else
+            else_statements = node[3][1]
+            for stmt in else_statements:
+                self.generate_code(stmt)
+            
+            self.pcode.emit('LABEL', None, None, else_label)
+        else:
+            # Si no hay else, solo ponemos la etiqueta de fin
+            self.pcode.emit('LABEL', None, None, end_label)
         
     def visit_while(self, node):
         start_label = self.pcode.get_label()
@@ -382,18 +390,22 @@ def p_statements(p):
 
 def p_statement(p):
     '''statement : WRITE expression SEMI
-                 | READ ID SEMI
-                 | IF expression THEN LBRACE statements RBRACE ELSE LBRACE statements RBRACE END
-                 | DO LBRACE statements RBRACE UNTIL LPAREN expression RPAREN SEMI
-                 | WHILE LPAREN expression RPAREN LBRACE statements RBRACE
-                 | ID ASSIGN expression SEMI'''
+                | READ ID SEMI
+                | IF expression THEN LBRACE statements RBRACE END
+                | IF expression THEN LBRACE statements RBRACE ELSE LBRACE statements RBRACE END
+                | DO LBRACE statements RBRACE UNTIL LPAREN expression RPAREN SEMI
+                | WHILE LPAREN expression RPAREN LBRACE statements RBRACE
+                | ID ASSIGN expression SEMI'''
     if p[1] == 'write':
         p[0] = ('write', p[2])
     elif p[1] == 'read':
         update_symbol_table(p[2], 'Variable', p.lineno(1))
         p[0] = ('read', ('id', p[2]))
     elif p[1] == 'if':
-        p[0] = ('if', p[2], ('then', p[5]), ('else', p[9]))
+        if len(p) == 8:  # if sin else
+            p[0] = ('if', p[2], ('then', p[5]), ('else', []))
+        else:  # if con else
+            p[0] = ('if', p[2], ('then', p[5]), ('else', p[9]))
     elif p[1] == 'do':
         p[0] = ('do_until', ('body', p[3]), ('condition', p[7]))
     elif p[1] == 'while':
@@ -535,6 +547,10 @@ def evaluate(node, error_reported=False):
                     result = left_val * right_val
                 elif node[1] == '^':
                     result = left_val ** right_val
+                elif node[1] == '&&':
+                    result = bool(left_val) and bool(right_val)
+                elif node[1] == '||':
+                    result = bool(left_val) or bool(right_val)
                 elif node[1] in ['<', '<=', '>', '>=', '==', '!=']:
                     result = eval(f"{left_val} {node[1]} {right_val}")
                 else:
@@ -610,8 +626,22 @@ def evaluate(node, error_reported=False):
             print(format_value(value))
             return value, f"write({value_str})"
         elif node[0] == 'if':
-            condition_value, condition_str = evaluate(node[1])
-            return condition_value, f"if condition: ({condition_str}) = {format_value(condition_value)}"
+            condition_val, condition_str = evaluate(node[1])
+            if condition_val is not None:
+                if bool(condition_val):  # Si la condición es verdadera
+                    # Evaluar todas las declaraciones en el bloque then
+                    for stmt in node[2][1]:  # node[2][1] contiene la lista de statements del then
+                        result, result_str = evaluate(stmt)
+                        if result is not None:
+                            return result, result_str
+                else:  # Si la condición es falsa y hay un else
+                    if node[3][1]:  # Verifica si hay bloque else
+                        # Evaluar todas las declaraciones en el bloque else
+                        for stmt in node[3][1]:  # node[3][1] contiene la lista de statements del else
+                            result, result_str = evaluate(stmt)
+                            if result is not None:
+                                return result, result_str
+            return None, "if statement completed"
         elif node[0] == 'do_until':
             body, condition = node[1], node[2]
             body_result = evaluate(body)
