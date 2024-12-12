@@ -10,6 +10,188 @@ error_set = set()
 
 division_by_zero_reported = False
 
+
+class PCode:
+    def __init__(self):
+        self.code = []
+        self.temp_counter = 0
+        self.label_counter = 0
+        
+    def get_temp(self):
+        """Genera un nuevo nombre de variable temporal"""
+        self.temp_counter += 1
+        return f"t{self.temp_counter}"
+        
+    def get_label(self):
+        """Genera una nueva etiqueta"""
+        self.label_counter += 1
+        return f"L{self.label_counter}"
+        
+    def emit(self, op, arg1=None, arg2=None, result=None):
+        """Emite una instrucción de código P"""
+        instruction = {'op': op}
+        if arg1 is not None:
+            instruction['arg1'] = str(arg1)
+        if arg2 is not None:
+            instruction['arg2'] = str(arg2)
+        if result is not None:
+            instruction['result'] = str(result)
+        self.code.append(instruction)
+        
+    def get_code(self):
+        """Retorna el código generado en formato legible"""
+        code_lines = []
+        for idx, instr in enumerate(self.code):
+            line = f"{idx:3d}: {instr['op']:<8}"
+            if 'arg1' in instr:
+                line += f" {instr['arg1']}"
+            if 'arg2' in instr:
+                line += f", {instr['arg2']}"
+            if 'result' in instr:
+                line += f" -> {instr['result']}"
+            code_lines.append(line)
+        return '\n'.join(code_lines)
+
+class CodeGenerator:
+    def __init__(self):
+        self.pcode = PCode()
+        self.symbol_table = {}
+        
+    def generate_code(self, node):
+        if isinstance(node, tuple):
+            if node[0] == 'program':
+                self.visit_program(node)
+            elif node[0] == 'declaration':
+                self.visit_declaration(node)
+            elif node[0] == 'assign':
+                self.visit_assignment(node)
+            elif node[0] == 'binop':
+                return self.visit_binop(node)
+            elif node[0] == 'number':
+                return str(node[1])
+            elif node[0] == 'id':
+                return node[1]
+            elif node[0] == 'if':
+                self.visit_if(node)
+            elif node[0] == 'while':
+                self.visit_while(node)
+            elif node[0] == 'do_until':
+                self.visit_do_until(node)
+            elif node[0] == 'write':
+                self.visit_write(node)
+            elif node[0] == 'read':
+                self.visit_read(node)
+                
+    def visit_program(self, node):
+        declarations = node[1][1] if len(node) > 1 else []
+        for decl in declarations:
+            self.generate_code(decl)
+            
+        statements = node[2][1] if len(node) > 2 else []
+        for stmt in statements:
+            self.generate_code(stmt)
+            
+    def visit_declaration(self, node):
+        var_type = node[1][1]
+        for var in node[2]:
+            self.symbol_table[var] = {'type': var_type, 'value': None}
+            self.pcode.emit('DECLARE', var, var_type)
+            
+    def visit_assignment(self, node):
+        var_name = node[1][1]
+        value = self.generate_code(node[2])
+        self.pcode.emit('STORE', value, None, var_name)
+        
+    def visit_binop(self, node):
+        op = node[1]
+        left = self.generate_code(node[2])
+        right = self.generate_code(node[3])
+        
+        result = self.pcode.get_temp()
+        
+        if op == '+':
+            self.pcode.emit('ADD', left, right, result)
+        elif op == '-':
+            self.pcode.emit('SUB', left, right, result)
+        elif op == '*':
+            self.pcode.emit('MUL', left, right, result)
+        elif op == '/':
+            self.pcode.emit('DIV', left, right, result)
+        elif op == '^':
+            self.pcode.emit('POW', left, right, result)
+        elif op in ['<', '<=', '>', '>=', '==', '!=']:
+            op_map = {'<': 'LT', '<=': 'LE', '>': 'GT', '>=': 'GE', 
+                     '==': 'EQ', '!=': 'NE'}
+            self.pcode.emit(op_map[op], left, right, result)
+            
+        return result
+        
+    def visit_if(self, node):
+        condition = self.generate_code(node[1])
+        else_label = self.pcode.get_label()
+        end_label = self.pcode.get_label()
+        
+        self.pcode.emit('JUMPF', condition, None, else_label)
+        
+        then_statements = node[2][1]
+        for stmt in then_statements:
+            self.generate_code(stmt)
+            
+        self.pcode.emit('JUMP', None, None, end_label)
+        self.pcode.emit('LABEL', None, None, else_label)
+        
+        else_statements = node[3][1]
+        for stmt in else_statements:
+            self.generate_code(stmt)
+            
+        self.pcode.emit('LABEL', None, None, end_label)
+        
+    def visit_while(self, node):
+        start_label = self.pcode.get_label()
+        end_label = self.pcode.get_label()
+        
+        self.pcode.emit('LABEL', None, None, start_label)
+        condition = self.generate_code(node[1][1])
+        self.pcode.emit('JUMPF', condition, None, end_label)
+        
+        body_statements = node[2][1]
+        for stmt in body_statements:
+            self.generate_code(stmt)
+            
+        self.pcode.emit('JUMP', None, None, start_label)
+        self.pcode.emit('LABEL', None, None, end_label)
+        
+    def visit_do_until(self, node):
+        start_label = self.pcode.get_label()
+        
+        self.pcode.emit('LABEL', None, None, start_label)
+        
+        body_statements = node[1][1]
+        for stmt in body_statements:
+            self.generate_code(stmt)
+            
+        condition = self.generate_code(node[2][1])
+        self.pcode.emit('JUMPF', condition, None, start_label)
+        
+    def visit_write(self, node):
+        value = self.generate_code(node[1])
+        self.pcode.emit('WRITE', value)
+        
+    def visit_read(self, node):
+        var_name = node[1][1]
+        self.pcode.emit('READ', None, None, var_name)
+
+def analyze_with_intermediate_code(input_text):
+    global parser, lexer
+    lexer.lineno = 1
+    ast = parser.parse(input_text, lexer=lexer)
+    
+    if ast:
+        code_generator = CodeGenerator()
+        code_generator.generate_code(ast)
+        return code_generator.pcode.get_code()
+    return "Error en el análisis. No se pudo generar código intermedio."
+
 # Palabras reservadas
 reserved = {
     'program': 'PROGRAM',
@@ -490,6 +672,10 @@ def analyze():
     print(symbol_table)
     
     display_tokens(tokens)
+
+    intermediate_code = analyze_with_intermediate_code(input_text)
+    intermediate_code_text.delete('1.0', tk.END)
+    intermediate_code_text.insert('1.0', intermediate_code)
     
    
     result = parser.parse(input_text, lexer=lexer, tracking=True)
@@ -661,6 +847,13 @@ notebook.add(token_frame, text="Tokens")
 # Pestaña de árbol sintáctico
 tree_frame = ttk.Frame(notebook)
 notebook.add(tree_frame, text="Árbol Sintáctico")
+
+#Pestaña de Codigo P
+intermediate_code_frame = ttk.Frame(notebook)
+notebook.add(intermediate_code_frame, text="Código Intermedio")
+
+intermediate_code_text = scrolledtext.ScrolledText(intermediate_code_frame, wrap=tk.WORD)
+intermediate_code_text.pack(fill='both', expand=True, padx=10, pady=10)
 
 # Crear área de texto para el código
 text_frame = tk.Frame(code_frame)
