@@ -852,76 +852,125 @@ def display_tokens(tokens):
         token_tree.insert('', 'end', values=(token.type, token.value, token.lineno, token.lexpos))
 
 def display_tree_node(node, parent_id="", error_reported=False):
+    if not node:
+        return
+        
     if isinstance(node, tuple):
         node_type = str(node[0])
+        node_text = ""
+        
         try:
-            if node_type == 'binop':
-                result, result_str = evaluate(node)
-                if result is None:
-                    text = f"Error: {result_str}"
-                else:
-                    text = f"Operation: {result_str}"
-            elif node_type == 'number':
-                value, _ = evaluate(node)
-                value_type = 'int' if isinstance(value, int) else 'float'
-                text = f"Number ({value_type}): {format_value(value)}"
-            elif node_type == 'boolean':
-                value, _ = evaluate(node)
-                text = f"Boolean: {str(value).lower()}"
-            elif node_type == 'id':
-                _, result_str = evaluate(node)
-                text = f"ID: {result_str}"
-            elif node_type == 'unary_minus':
-                _, result_str = evaluate(node)
-                text = f"Unary minus: {result_str}"
-            elif node_type == 'assign':
-                _, result_str = evaluate(node)
-                text = f"Assign: {result_str}"
+            value, eval_str = evaluate(node)
+            
+            if node_type == 'program':
+                node_text = "Program"
+            elif node_type == 'declarations':
+                node_text = "Declarations Block"
             elif node_type == 'declaration':
                 var_type = node[1][1]
-                var_names = ', '.join(node[2])
-                text = f"Declaration: {var_type} {var_names}"
+                vars_list = ', '.join(node[2])
+                node_text = f"Declaration: {var_type} [{vars_list}]"
+            elif node_type == 'statements':
+                node_text = "Statements Block"
+            elif node_type == 'assign':
+                var_name = node[1][1]
+                # Verificar si esta variable está siendo leída por READ
+                read_key = f"read_{var_name}_{id(node)}"
+                if read_key in processed_reads:
+                    # Si es una variable de READ, obtener el valor de la tabla de símbolos
+                    current_value = symbol_table[var_name].get('value')
+                    node_text = f"Assignment: {var_name} = {current_value}"
+                else:
+                    # Para asignaciones normales, usar el valor de la evaluación
+                    if value is not None:
+                        node_text = f"Assignment: {var_name} = {value}"
+                    else:
+                        node_text = f"Assignment to: {var_name}"
+            elif node_type == 'binop':
+                operator = node[1]
+                if value is not None:
+                    node_text = f"Operation: {operator} = {value}"
+                else:
+                    node_text = f"Operation: {operator}"
+            elif node_type == 'number':
+                node_text = f"Number: {node[1]} (Type: {'int' if isinstance(node[1], int) else 'float'})"
+            elif node_type == 'id':
+                var_name = node[1]
+                if var_name in symbol_table:
+                    var_type = symbol_table[var_name].get('type', 'undefined')
+                    # Verificar si esta variable está siendo leída por READ
+                    read_key = f"read_{var_name}_{id(node)}"
+                    if read_key in processed_reads:
+                        var_value = symbol_table[var_name].get('value')
+                        value_str = f", Value: {var_value}" if var_value is not None else ""
+                        node_text = f"ID: {var_name} (Type: {var_type}{value_str})"
+                    else:
+                        # Para variables normales, mostrar el valor directamente
+                        node_text = f"ID: {var_name} (Type: {var_type}, Value: {value if value is not None else 'undefined'})"
+                else:
+                    node_text = f"ID: {var_name}"
+            elif node_type == 'write':
+                if isinstance(node[1], tuple) and node[1][0] == 'id':
+                    var_name = node[1][1]
+                    read_key = f"read_{var_name}_{id(node)}"
+                    if read_key in processed_reads:
+                        expr_value = symbol_table[var_name].get('value')
+                    else:
+                        expr_value = value
+                    node_text = f"Write Statement: {expr_value if expr_value is not None else eval_str}"
+                else:
+                    node_text = f"Write Statement: {eval_str}"
             elif node_type == 'read':
                 var_name = node[1][1]
-                if var_name in symbol_table:
-                    value = symbol_table[var_name].get('value')
-                    var_type = symbol_table[var_name].get('type')
-                    text = f"Read: {var_name} ({var_type}) = {format_value(value)}"
+                read_key = f"read_{var_name}_{id(node)}"
+                if read_key in processed_reads and var_name in symbol_table:
+                    var_type = symbol_table[var_name].get('type', 'undefined')
+                    var_value = symbol_table[var_name].get('value')
+                    value_str = f", Value: {var_value}" if var_value is not None else " (waiting for input)"
+                    node_text = f"Read: {var_name} (Type: {var_type}{value_str})"
                 else:
-                    text = f"Read: {var_name} (undefined)"
-            elif node_type == 'do_until':
-                body_str = evaluate(node[1])[1]
-                condition_str = evaluate(node[2])[1]
-                text = f"Do-Until: body ({body_str}), until ({condition_str})"
+                    node_text = f"Read: {var_name} (waiting for input)"
+            elif node_type == 'if':
+                node_text = "If Statement"
             elif node_type == 'while':
-                condition_str = evaluate(node[1])[1]
-                body_str = evaluate(node[2])[1]
-                text = f"While: condition ({condition_str}), body ({body_str})"
+                node_text = "While Loop"
+            elif node_type == 'do_until':
+                node_text = "Do-Until Loop"
+            elif node_type == 'type':
+                node_text = f"Type: {node[1]}"
+            elif node_type in ['then', 'else']:
+                node_text = f"{node_type.capitalize()} Block"
             else:
-                _, result_str = evaluate(node)
-                text = f"{node_type}: {result_str}"
+                node_text = f"Node: {node_type}"
+                if eval_str:
+                    node_text += f" ({eval_str})"
+
         except Exception as e:
-            text = f"Error in {node_type}: {str(e)}"
+            node_text = f"{node_type} (Error: {str(e)})"
+
+        current_id = annotated_tree.insert(parent_id, 'end', text=node_text, open=True)
         
-        item_id = annotated_tree.insert(parent_id, 'end', text=text, open=True)
         for child in node[1:]:
-            if not callable(child):  # Skip lambda functions
-                display_tree_node(child, item_id)
+            if child and not callable(child):
+                display_tree_node(child, current_id)
+                
     elif isinstance(node, list):
         for item in node:
             display_tree_node(item, parent_id)
-    else:
-        # Aquí es donde manejamos los valores simples (Value: x, y, z)
+    elif node is not None:
+        leaf_text = str(node)
         if isinstance(node, (int, float)):
-            data_type = 'int' if isinstance(node, int) else 'float'
-            text = f"Value: {node} (Type: {data_type})"
+            leaf_text = f"Value: {node} (Type: {type(node).__name__})"
         elif isinstance(node, str) and node in symbol_table:
-            var_type = symbol_table[node].get('type', 'undefined')
-            value = symbol_table[node].get('value')
-            text = f"Value: {node} (Type: {var_type}) = {format_value(value)}"
-        else:
-            text = f"Value: {node}"
-        annotated_tree.insert(parent_id, 'end', text=text)
+            var_info = symbol_table[node]
+            read_key = f"read_{node}_{id(node)}"
+            if read_key in processed_reads:
+                var_value = var_info.get('value')
+                value_str = f", Value: {var_value}" if var_value is not None else ""
+            else:
+                value_str = f", Value: {var_info.get('value', 'undefined')}"
+            leaf_text = f"Variable: {node} (Type: {var_info.get('type')}{value_str})"
+        annotated_tree.insert(parent_id, 'end', text=leaf_text)
 
 def display_annotated_node(node, parent_id=""):
     if isinstance(node, tuple):
@@ -933,11 +982,16 @@ def display_annotated_node(node, parent_id=""):
         annotated_tree.insert(parent_id, 'end', text=f"Leaf: {node}")
 
 def display_syntax_tree(syntax_tree):
+    # Limpiar el árbol antes de mostrar nuevos datos
     annotated_tree.delete(*annotated_tree.get_children())
-    if isinstance(syntax_tree, str):  # Si hubo errores
+    
+    if isinstance(syntax_tree, str):  # Si hay un error
         annotated_tree.insert('', 'end', text=syntax_tree)
     else:
-        display_tree_node(syntax_tree, "", False)
+        try:
+            display_tree_node(syntax_tree)
+        except Exception as e:
+            annotated_tree.insert('', 'end', text=f"Error displaying tree: {str(e)}")
 
 def display_annotated_tree(syntax_tree):
     tree_view.delete(*tree_view.get_children())
