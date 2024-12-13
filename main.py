@@ -686,19 +686,25 @@ def evaluate(node, error_reported=False):
                 return symbol_table[var_name]['value'], f"read -> {var_name}"
         elif node[0] == 'if':
             condition_val, condition_str = evaluate(node[1])
+            results = []
+            
             if condition_val is not None:
                 if bool(condition_val):
-                    for stmt in node[2][1]:
+                    # Procesar todas las instrucciones en el bloque then
+                    for stmt in node[2][1]:  # node[2][1] contiene la lista de statements del then
                         result, result_str = evaluate(stmt)
                         if result is not None:
-                            return result, result_str
+                            results.append(result_str)
                 else:
-                    if node[3][1]:
+                    # Si hay bloque else, procesar todas sus instrucciones
+                    if node[3][1]:  # Verifica si hay statements en el else
                         for stmt in node[3][1]:
                             result, result_str = evaluate(stmt)
                             if result is not None:
-                                return result, result_str
-            return None, "if statement completed"
+                                results.append(result_str)
+                                
+            # Retornar None como valor y una cadena con todos los resultados
+            return None, f"if statement results: {'; '.join(results)}" if results else "if statement completed"
         elif node[0] == 'while':
             results = []
             max_iterations = 1000  # Límite de seguridad para evitar bucles infinitos
@@ -740,11 +746,29 @@ def evaluate(node, error_reported=False):
                 
                 # Ejecutar el cuerpo del do-until
                 for stmt in node[1][1]:  # node[1][1] contiene la lista de statements
-                    result, result_str = evaluate(stmt)
-                    if result is not None:
-                        results.append(result_str)
+                    # Si el statement es un if, necesitamos evaluarlo completamente
+                    if isinstance(stmt, tuple) and stmt[0] == 'if':
+                        condition_val, condition_str = evaluate(stmt[1])
+                        if condition_val is not None:
+                            if bool(condition_val):
+                                # Ejecutar bloque then
+                                for then_stmt in stmt[2][1]:
+                                    result, result_str = evaluate(then_stmt)
+                                    if result is not None:
+                                        results.append(result_str)
+                            elif stmt[3][1]:  # Si hay bloque else
+                                # Ejecutar bloque else
+                                for else_stmt in stmt[3][1]:
+                                    result, result_str = evaluate(else_stmt)
+                                    if result is not None:
+                                        results.append(result_str)
+                    else:
+                        # Para otros tipos de statements
+                        result, result_str = evaluate(stmt)
+                        if result is not None:
+                            results.append(result_str)
                 
-                # Evaluar la condición
+                # Evaluar la condición del do-until
                 condition_val, condition_str = evaluate(node[2][1])
                 if condition_val is None:
                     return None, f"Error en la condición del do-until: {condition_str}"
