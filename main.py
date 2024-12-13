@@ -325,6 +325,7 @@ symbol_table = {}
 symbol_id_counter = 0
 total_lines = 0
 output_buffer = []
+processed_reads = set()
 
 
 def update_symbol_table(name, token_type, line):
@@ -630,15 +631,59 @@ def evaluate(node, error_reported=False):
             return None, f"Error en write: {value_str}"
         elif node[0] == 'read':
             var_name = node[1][1]
-            if var_name in symbol_table:
-                # Aquí podrías implementar la lógica para leer input del usuario
-                # Por ahora, simplemente asignamos un valor predeterminado
-                symbol_table[var_name]['value'] = 0
-                return 0, f"read -> {var_name}"
-            else:
+            # Verificar si esta lectura ya fue procesada
+            read_key = f"read_{var_name}_{id(node)}"
+            
+            if var_name in symbol_table and read_key not in processed_reads:
+                processed_reads.add(read_key)  # Marcar como procesada
+                
+                # Mostrar prompt en el área de salida
+                output_text.insert(tk.END, f"Ingrese valor para {var_name}: ")
+                # Crear entrada en línea
+                entry = tk.Entry(output_frame)
+                output_text.window_create(tk.END, window=entry)
+                output_text.insert(tk.END, "\n")
+                
+                # Función para procesar la entrada
+                def process_input(event=None):
+                    value = entry.get()
+                    try:
+                        # Convertir el valor según el tipo de variable
+                        var_type = symbol_table[var_name].get('type')
+                        if var_type == 'int':
+                            processed_value = int(value)
+                        elif var_type == 'float':
+                            processed_value = float(value)
+                        elif var_type == 'bool':
+                            processed_value = value.lower() in ['true', '1', 'yes', 'y']
+                        else:
+                            processed_value = value
+                            
+                        symbol_table[var_name]['value'] = processed_value
+                        output_text.insert(tk.END, f"Valor asignado: {processed_value}\n")
+                        entry.destroy()
+                        
+                    except ValueError:
+                        output_text.insert(tk.END, f"Error: Valor inválido para tipo {var_type}\n")
+                        entry.delete(0, tk.END)
+                        return
+                    
+                # Vincular la tecla Enter a la función process_input
+                entry.bind('<Return>', process_input)
+                # Dar foco al entry
+                entry.focus_set()
+                
+                # Esperar a que el usuario ingrese el valor
+                root.wait_window(entry)
+                
+                return symbol_table[var_name]['value'], f"read -> {var_name}"
+            elif var_name not in symbol_table:
                 error_msg = f"Error: Variable '{var_name}' no definida"
                 add_error(error_msg)
                 return None, error_msg
+            else:
+                # Si ya fue procesada, solo retornar el valor actual
+                return symbol_table[var_name]['value'], f"read -> {var_name}"
         elif node[0] == 'if':
             condition_val, condition_str = evaluate(node[1])
             if condition_val is not None:
@@ -734,9 +779,10 @@ def display_errors():
 
 # Funciones de la interfaz gráfica
 def analyze():
-    global input_text,output_text, symbol_table, symbol_id_counter, total_lines, division_by_zero_reported, error_set, output_buffer
+    global input_text,output_text, symbol_table, symbol_id_counter, total_lines, division_by_zero_reported, error_set, output_buffer, processed_reads
     
     # Limpiar el buffer de salida al inicio del análisis
+    processed_reads.clear() 
     output_buffer.clear()
     output_text.delete('1.0', tk.END)
     
@@ -761,7 +807,6 @@ def analyze():
         print(f"Token: {token.type}, Valor: {token.value}, Línea: {token.lineno}")
         if token.type == 'ID':
             update_symbol_table(token.value, token.type, token.lineno)
-    print(symbol_table)
     
     display_tokens(tokens)
 
@@ -836,6 +881,14 @@ def display_tree_node(node, parent_id="", error_reported=False):
                 var_type = node[1][1]
                 var_names = ', '.join(node[2])
                 text = f"Declaration: {var_type} {var_names}"
+            elif node_type == 'read':
+                var_name = node[1][1]
+                if var_name in symbol_table:
+                    value = symbol_table[var_name].get('value')
+                    var_type = symbol_table[var_name].get('type')
+                    text = f"Read: {var_name} ({var_type}) = {format_value(value)}"
+                else:
+                    text = f"Read: {var_name} (undefined)"
             elif node_type == 'do_until':
                 body_str = evaluate(node[1])[1]
                 condition_str = evaluate(node[2])[1]
@@ -864,7 +917,8 @@ def display_tree_node(node, parent_id="", error_reported=False):
             text = f"Value: {node} (Type: {data_type})"
         elif isinstance(node, str) and node in symbol_table:
             var_type = symbol_table[node].get('type', 'undefined')
-            text = f"Value: {node} (Type: {var_type})"
+            value = symbol_table[node].get('value')
+            text = f"Value: {node} (Type: {var_type}) = {format_value(value)}"
         else:
             text = f"Value: {node}"
         annotated_tree.insert(parent_id, 'end', text=text)
