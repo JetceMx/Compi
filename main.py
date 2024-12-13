@@ -734,7 +734,7 @@ def evaluate(node, error_reported=False):
             
         elif node[0] == 'do_until':
             results = []
-            max_iterations = 1000  # Límite de seguridad
+            max_iterations = 100000  # Límite de seguridad
             iterations = 0
             
             while True:
