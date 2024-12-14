@@ -226,7 +226,7 @@ tokens = [
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'EXPONENT',
     'LT', 'LE', 'GT', 'GE', 'EQ', 'NEQ', 'ASSIGN',
     'SEMI', 'COMMA', 'LPAREN', 'RPAREN', 'LBRACE', 'RBRACE',
-    'ID', 'NUMBER'
+    'ID', 'NUMBER','STRING'
 ] + list(reserved.values())
 
 class CustomColorDelegator(ColorDelegator):
@@ -235,21 +235,25 @@ class CustomColorDelegator(ColorDelegator):
         self.prog = re.compile(r'\b(?P<KEYWORD>program|if|else|end|do|until|while|read|write|float|int|bool|true|false|then)\b|'
                                r'(?P<OPERATOR>\+|-|\*|/|\^|<|<=|>|>=|==|!=|=|\|\||&&)|'
                                r'\b(?P<VARIABLE>[a-zA-Z_][a-zA-Z0-9_]*)\b|'
-                               r'(?P<NUMBER>\d+(\.\d*)?|\.\d+)')
+                               r'(?P<NUMBER>\d+(\.\d*)?|\.\d+)'
+                               r'(?P<STRING>"[^"]*")')
+                                
 
     def colorize(self, start, end):
         self.tag_remove("KEYWORD", start, end)
         self.tag_remove("OPERATOR", start, end)
         self.tag_remove("VARIABLE", start, end)
         self.tag_remove("NUMBER", start, end)
+        self.tag_remove("STRING", start, end)
         
-        for tag in ("KEYWORD", "OPERATOR", "VARIABLE", "NUMBER"):
+        for tag in ("KEYWORD", "OPERATOR", "VARIABLE", "NUMBER","STRING"):
             self.tag_configure(tag, foreground=self.colors.get(tag, "black"))
         
         self.tag_configure("KEYWORD", foreground="black")
         self.tag_configure("OPERATOR", foreground="red")
         self.tag_configure("VARIABLE", foreground="green")
         self.tag_configure("NUMBER", foreground="purple")
+        self.tag_configure("STRING", foreground="blue")
         
         for match in self.prog.finditer(self.text.get(start, end)):
             for key, value in match.groupdict().items():
@@ -291,6 +295,12 @@ def t_NUMBER(t):
 def t_ID(t):
     r'[A-Za-z_][A-Za-z0-9_]*'
     t.type = reserved.get(t.value, 'ID')
+    return t
+
+ #Añadir regla para reconocer strings
+def t_STRING(t):
+    r'"[^"]*"'
+    t.value = t.value  # Mantener las comillas por ahora
     return t
 
 # Ignorar espacios y tabulaciones
@@ -392,6 +402,7 @@ def p_statements(p):
 
 def p_statement(p):
     '''statement : WRITE expression SEMI
+                | WRITE STRING SEMI
                 | READ ID SEMI
                 | IF expression THEN LBRACE statements RBRACE END
                 | IF expression THEN LBRACE statements RBRACE ELSE LBRACE statements RBRACE END
@@ -399,7 +410,13 @@ def p_statement(p):
                 | WHILE LPAREN expression RPAREN LBRACE statements RBRACE
                 | ID ASSIGN expression SEMI'''
     if p[1] == 'write':
-        p[0] = ('write', p[2])
+        if len(p) > 3 and isinstance(p[2], str) and p[2].startswith('"'):
+            # Es un string literal
+            string_value = p[2][1:-1]  # Quitar comillas aquí
+            p[0] = ('write_string', string_value)
+        else:
+            # Es una expresión normal
+            p[0] = ('write', p[2])
     elif p[1] == 'read':
         update_symbol_table(p[2], 'Variable', p.lineno(1))
         p[0] = ('read', ('id', p[2]))
@@ -456,16 +473,19 @@ def p_factor(p):
               | ID
               | TRUE
               | FALSE
+              | STRING
               | LPAREN expression RPAREN'''
     if len(p) == 2:
         if isinstance(p[1], (int, float)):
             p[0] = ('number', p[1])
         elif p[1] in ['true', 'false']:
             p[0] = ('boolean', p[1] == 'true')
+        elif isinstance(p[1], str) and p[1].startswith('"'):
+            p[0] = ('string', p[1])  # Mantener comillas por ahora
         else:
             p[0] = ('id', p[1])
     else:
-        p[0] = ('group', p[2])
+        p[0] = p[2]
         
 
 
@@ -623,20 +643,27 @@ def evaluate(node, error_reported=False):
                 error_msg = f"Error: Variable '{var_name}' no definida"
                 add_error(error_msg)
                 return None, error_msg
-        if node[0] == 'write':
+        if node[0] == 'write_string':
+            # Para strings literales en write
+            output_buffer.append(node[1])  # Añadir al buffer sin comillas
+            return node[1], f'write("{node[1]}")'
+        elif node[0] == 'string':
+            # Para strings en general
+            value = node[1]
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            return value, value
+        elif node[0] == 'write':
             value, value_str = evaluate(node[1])
             if value is not None:
                 output_buffer.append(str(value))
                 return value, f"write({value_str})"
             return None, f"Error en write: {value_str}"
-        elif node[0] == 'read':
+        elif node[0] == 'string':
+            return node[1], f'"{node[1]}"'
+        if node[0] == 'read':
             var_name = node[1][1]
-            # Verificar si esta lectura ya fue procesada
-            read_key = f"read_{var_name}_{id(node)}"
-            
-            if var_name in symbol_table and read_key not in processed_reads:
-                processed_reads.add(read_key)  # Marcar como procesada
-                
+            if var_name in symbol_table:
                 # Mostrar prompt en el área de salida
                 output_text.insert(tk.END, f"Ingrese valor para {var_name}: ")
                 # Crear entrada en línea
@@ -677,13 +704,10 @@ def evaluate(node, error_reported=False):
                 root.wait_window(entry)
                 
                 return symbol_table[var_name]['value'], f"read -> {var_name}"
-            elif var_name not in symbol_table:
+            else:
                 error_msg = f"Error: Variable '{var_name}' no definida"
                 add_error(error_msg)
                 return None, error_msg
-            else:
-                # Si ya fue procesada, solo retornar el valor actual
-                return symbol_table[var_name]['value'], f"read -> {var_name}"
         elif node[0] == 'if':
             condition_val, condition_str = evaluate(node[1])
             results = []
@@ -852,11 +876,18 @@ def analyze():
         # Mostrar la salida acumulada en el área de salida
         if output_buffer:
             output_text.insert(tk.END, "Salida del programa:\n")
+            
             for line in output_buffer:
+                # Procesar strings literales (quitar comillas si las tiene)
+                if isinstance(line, str):
+                    if line.startswith('"') and line.endswith('"'):
+                        line = line[1:-1]
                 output_text.insert(tk.END, f"{line}\n")
+           
     
     display_errors()
     display_syntax_tree(result if result else 'Errores en el análisis')
+    
 
 import logging
 logging.basicConfig(
@@ -918,6 +949,8 @@ def display_tree_node(node, parent_id="", error_reported=False):
                     node_text = f"Operation: {operator}"
             elif node_type == 'number':
                 node_text = f"Number: {node[1]} (Type: {'int' if isinstance(node[1], int) else 'float'})"
+            elif node_type == 'string':
+                node_text = f'String: "{node[1]}"'
             elif node_type == 'id':
                 var_name = node[1]
                 if var_name in symbol_table:
@@ -933,6 +966,8 @@ def display_tree_node(node, parent_id="", error_reported=False):
                         node_text = f"ID: {var_name} (Type: {var_type}, Value: {value if value is not None else 'undefined'})"
                 else:
                     node_text = f"ID: {var_name}"
+            elif node_type == 'write_string':
+                node_text = f'Write String: "{node[1]}"'
             elif node_type == 'write':
                 if isinstance(node[1], tuple) and node[1][0] == 'id':
                     var_name = node[1][1]
