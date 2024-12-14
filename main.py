@@ -226,7 +226,7 @@ tokens = [
     'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'EXPONENT',
     'LT', 'LE', 'GT', 'GE', 'EQ', 'NEQ', 'ASSIGN',
     'SEMI', 'COMMA', 'LPAREN', 'RPAREN', 'LBRACE', 'RBRACE',
-    'ID', 'NUMBER'
+    'ID', 'NUMBER', 'STRING'  # Asegurarnos que STRING está aquí
 ] + list(reserved.values())
 
 class CustomColorDelegator(ColorDelegator):
@@ -291,6 +291,11 @@ def t_NUMBER(t):
 def t_ID(t):
     r'[A-Za-z_][A-Za-z0-9_]*'
     t.type = reserved.get(t.value, 'ID')
+    return t
+
+def t_STRING(t):
+    r'"[^"]*"'
+    t.value = t.value  # Mantener las comillas por ahora
     return t
 
 # Ignorar espacios y tabulaciones
@@ -392,6 +397,7 @@ def p_statements(p):
 
 def p_statement(p):
     '''statement : WRITE expression SEMI
+                | WRITE STRING SEMI
                 | READ ID SEMI
                 | IF expression THEN LBRACE statements RBRACE END
                 | IF expression THEN LBRACE statements RBRACE ELSE LBRACE statements RBRACE END
@@ -399,7 +405,13 @@ def p_statement(p):
                 | WHILE LPAREN expression RPAREN LBRACE statements RBRACE
                 | ID ASSIGN expression SEMI'''
     if p[1] == 'write':
-        p[0] = ('write', p[2])
+        if len(p) > 3 and isinstance(p[2], str) and p[2].startswith('"'):
+            # Es un string literal
+            string_value = p[2][1:-1]  # Quitar comillas aquí
+            p[0] = ('write_string', string_value)
+        else:
+            # Es una expresión normal
+            p[0] = ('write', p[2])
     elif p[1] == 'read':
         update_symbol_table(p[2], 'Variable', p.lineno(1))
         p[0] = ('read', ('id', p[2]))
@@ -456,16 +468,19 @@ def p_factor(p):
               | ID
               | TRUE
               | FALSE
+              | STRING
               | LPAREN expression RPAREN'''
     if len(p) == 2:
         if isinstance(p[1], (int, float)):
             p[0] = ('number', p[1])
         elif p[1] in ['true', 'false']:
             p[0] = ('boolean', p[1] == 'true')
+        elif isinstance(p[1], str) and p[1].startswith('"'):
+            p[0] = ('string', p[1])  # Mantener comillas por ahora
         else:
             p[0] = ('id', p[1])
     else:
-        p[0] = ('group', p[2])
+        p[0] = p[2]
         
 
 
@@ -623,7 +638,17 @@ def evaluate(node, error_reported=False):
                 error_msg = f"Error: Variable '{var_name}' no definida"
                 add_error(error_msg)
                 return None, error_msg
-        if node[0] == 'write':
+        if node[0] == 'write_string':
+            # Para strings literales en write
+            output_buffer.append(node[1])  # Añadir al buffer sin comillas
+            return node[1], f'write("{node[1]}")'
+        elif node[0] == 'string':
+            # Para strings en general
+            value = node[1]
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            return value, value
+        elif node[0] == 'write':
             value, value_str = evaluate(node[1])
             if value is not None:
                 output_buffer.append(str(value))
@@ -672,6 +697,7 @@ def evaluate(node, error_reported=False):
                 entry.bind('<Return>', process_input)
                 # Dar foco al entry
                 entry.focus_set()
+                
                 
                 # Esperar a que el usuario ingrese el valor
                 root.wait_window(entry)
@@ -852,8 +878,12 @@ def analyze():
         # Mostrar la salida acumulada en el área de salida
         if output_buffer:
             output_text.insert(tk.END, "Salida del programa:\n")
+           
             for line in output_buffer:
                 output_text.insert(tk.END, f"{line}\n")
+         
+            
+        
     
     display_errors()
     display_syntax_tree(result if result else 'Errores en el análisis')
