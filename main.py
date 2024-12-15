@@ -207,7 +207,7 @@ def analyze_with_intermediate_code(input_text):
 class PToTinyTranslator:
     def __init__(self):
         self.variables = set()
-        self.float_variables = set()  # Nuevo: conjunto para variables float
+        self.float_variables = set()
         self.current_indent = 0
         self.label_map = {}
         self.pending_labels = {}
@@ -223,50 +223,84 @@ class PToTinyTranslator:
         except:
             return False
     
+    def parse_instruction(self, line):
+        """Convierte una línea de código P en un diccionario de instrucción."""
+        parts = line.split(':')
+        if len(parts) != 2:
+            return None
+            
+        instruction_parts = parts[1].strip().split()
+        if not instruction_parts:
+            return None
+            
+        instruction = {'op': instruction_parts[0]}
+        
+        # Procesar los argumentos según el formato de la instrucción
+        if len(instruction_parts) > 1:
+            if '->' in instruction_parts:
+                # Formato: operación arg1, arg2 -> result
+                arrow_index = instruction_parts.index('->')
+                if arrow_index > 1:
+                    instruction['arg1'] = instruction_parts[1]
+                    if arrow_index > 2 and ',' in ' '.join(instruction_parts):
+                        instruction['arg2'] = instruction_parts[2].rstrip(',')
+                if arrow_index + 1 < len(instruction_parts):
+                    instruction['result'] = instruction_parts[arrow_index + 1]
+            else:
+                # Formato: operación arg1 [arg2]
+                instruction['arg1'] = instruction_parts[1]
+                if len(instruction_parts) > 2:
+                    instruction['arg2'] = instruction_parts[2]
+                    if len(instruction_parts) > 3:
+                        instruction['result'] = instruction_parts[3]
+        
+        return instruction
+    
     def translate_instruction(self, instruction):
+        if not instruction:
+            return None
+            
         op = instruction['op']
         
         if op == 'DECLARE':
-            var_name = instruction['arg1']
-            var_type = instruction['arg2']
+            var_name = instruction.get('arg1')
+            var_type = instruction.get('arg2')
             if var_type == 'float':
                 self.float_variables.add(var_name)
             self.variables.add(var_name)
             return None
             
         elif op == 'READ':
-            var = instruction['result']
+            var = instruction.get('result', instruction.get('arg1'))
             if var in self.float_variables:
-                # Para variables float, aseguramos que se lea como decimal
                 return f"{self.indent()}read {var};"
             return f"{self.indent()}read {var};"
             
         elif op == 'WRITE':
-            var = instruction['arg1']
+            var = instruction.get('arg1', instruction.get('result'))
             if var in self.temp_map:
                 var = self.temp_map[var]
-            # Para floats, formateamos con decimales
             if var in self.float_variables:
                 return f"{self.indent()}write {var};"
             return f"{self.indent()}write {var};"
             
         elif op == 'STORE':
-            target = instruction['result']
-            value = instruction['arg1']
+            target = instruction.get('result')
+            value = instruction.get('arg1')
+            if not target or not value:
+                return None
             if value in self.temp_map:
                 value = self.temp_map[value]
-            
-            # Si es una asignación a float, aseguramos el tipo
-            if target in self.float_variables or self.is_float(value):
-                return f"{self.indent()}{target} := {value};"
             return f"{self.indent()}{target} := {value};"
             
         elif op in ['ADD', 'SUB', 'MUL', 'DIV']:
-            result = instruction['result']
-            arg1 = instruction['arg1']
-            arg2 = instruction['arg2']
+            result = instruction.get('result')
+            arg1 = instruction.get('arg1')
+            arg2 = instruction.get('arg2')
             
-            # Verificar si alguno de los operandos es float
+            if not all([result, arg1, arg2]):
+                return None
+                
             is_float_op = (arg1 in self.float_variables or 
                           arg2 in self.float_variables or 
                           self.is_float(arg1) or 
@@ -291,95 +325,59 @@ class PToTinyTranslator:
             if arg2 in self.temp_map:
                 arg2 = self.temp_map[arg2]
             
-            # Si es operación float, aseguramos precisión decimal
-            if is_float_op:
-                return f"{self.indent()}{result} := {arg1} {op_map[op]} {arg2};"
             return f"{self.indent()}{result} := {arg1} {op_map[op]} {arg2};"
             
-        elif op in ['LT', 'LE', 'GT', 'GE', 'EQ', 'NE']:
-            result = instruction['result']
-            arg1 = instruction['arg1']
-            arg2 = instruction['arg2']
-            
-            is_float_comparison = (arg1 in self.float_variables or 
-                                 arg2 in self.float_variables or 
-                                 self.is_float(arg1) or 
-                                 self.is_float(arg2))
-            
-            op_map = {
-                'LT': '<',
-                'LE': '<=',
-                'GT': '>',
-                'GE': '>=',
-                'EQ': '=',
-                'NE': '<>'
-            }
-            
-            if result.startswith('t'):
-                temp_var = f"temp_{len(self.temp_map)}"
-                self.temp_map[result] = temp_var
-                result = temp_var
+        elif op in ['LABEL']:
+            label = instruction.get('result', instruction.get('arg1'))
+            if label:
+                return f"{label}:"
                 
-            if arg1 in self.temp_map:
-                arg1 = self.temp_map[arg1]
-            if arg2 in self.temp_map:
-                arg2 = self.temp_map[arg2]
-            
-            # Si es comparación float, usar comparación con tolerancia
-            if is_float_comparison:
-                return f"{self.indent()}{result} := {arg1} {op_map[op]} {arg2};"
-            return f"{self.indent()}{result} := {arg1} {op_map[op]} {arg2};"
-            
-        elif op == 'JUMPF':
-            condition = instruction['arg1']
-            label = instruction['result']
-            if condition in self.temp_map:
-                condition = self.temp_map[condition]
-            return f"{self.indent()}if {condition} = 0 then goto {label};"
-            
-        elif op == 'JUMP':
-            label = instruction['result']
-            return f"{self.indent()}goto {label};"
-            
-        elif op == 'LABEL':
-            label = instruction['result']
-            return f"{label}:"
-            
+        elif op in ['JUMP']:
+            label = instruction.get('result', instruction.get('arg1'))
+            if label:
+                return f"{self.indent()}goto {label};"
+                
+        elif op in ['JUMPF']:
+            condition = instruction.get('arg1')
+            label = instruction.get('result')
+            if condition and label:
+                if condition in self.temp_map:
+                    condition = self.temp_map[condition]
+                return f"{self.indent()}if {condition} = 0 goto {label};"
+        
         return None
 
     def translate(self, p_code):
         lines = p_code.strip().split('\n')
         tiny_program = []
         
-        # Primera pasada: recolectar etiquetas y variables temporales
+        # Primera pasada: recolectar variables y etiquetas
         for line in lines:
-            if ':' not in line:
-                continue
-            
-            parts = line.split(':')[1].strip().split()
-            if not parts:
-                continue
+            instruction = self.parse_instruction(line)
+            if instruction:
+                if instruction['op'] == 'DECLARE':
+                    var_name = instruction.get('arg1')
+                    var_type = instruction.get('arg2')
+                    if var_type == 'float':
+                        self.float_variables.add(var_name)
+                    self.variables.add(var_name)
                 
-            instruction = {'op': parts[0]}
-            if len(parts) > 1:
-                instruction['arg1'] = parts[1]
-            if len(parts) > 2:
-                instruction['arg2'] = parts[2]
-            if len(parts) > 3 and '->' in line:
-                instruction['result'] = parts[-1]
-                
-            tiny_code = self.translate_instruction(instruction)
-            if tiny_code:
-                tiny_program.append(tiny_code)
+        # Segunda pasada: generar código
+        for line in lines:
+            instruction = self.parse_instruction(line)
+            if instruction:
+                tiny_code = self.translate_instruction(instruction)
+                if tiny_code:
+                    tiny_program.append(tiny_code)
         
-        # Agregar inicialización para variables float
+        # Agregar inicialización para variables temporales
         temp_declarations = []
         for temp in self.temp_map.values():
             if temp in self.float_variables:
                 temp_declarations.append(f"{self.indent()}{temp} := 0.0;")
-            elif temp not in self.variables:
+            else:
                 temp_declarations.append(f"{self.indent()}{temp} := 0;")
-                
+        
         return '\n'.join(temp_declarations + tiny_program)
 
 def translate_p_to_tiny(p_code):
@@ -996,6 +994,7 @@ def analyze():
     processed_reads.clear() 
     output_buffer.clear()
     output_text.delete('1.0', tk.END)
+    tiny_code_text.delete('1.0', tk.END) 
     
     input_text = text_area.get("1.0", tk.END)
     division_by_zero_reported = False
@@ -1025,6 +1024,11 @@ def analyze():
     intermediate_code_text.delete('1.0', tk.END)
     intermediate_code_text.insert('1.0', intermediate_code)
     
+     # Generar código Tiny a partir del código P
+    if intermediate_code and "Error" not in intermediate_code:
+        tiny_code = translate_p_to_tiny(intermediate_code)
+        tiny_code_text.delete('1.0', tk.END)
+        tiny_code_text.insert('1.0', tiny_code)
    
     result = parser.parse(input_text, lexer=lexer, tracking=True)
     print(f"DEBUG: Resultado del parsing: {result}")
