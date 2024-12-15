@@ -1,0 +1,30 @@
+program {
+    float num1, num2, num3, mayor;
+    
+    // Leer los tres números
+    // Indicador para primer número
+    read num1;
+    // Indicador para segundo número
+    read num2;
+    // Indicador para tercer número
+    read num3;
+    
+    // Encontrar el mayor
+    if num1 >= num2 then {
+        if num1 >= num3 then {
+            mayor = num1;
+        } else {
+            mayor = num3;
+        } end
+    } else {
+        if num2 >= num3 then {
+            mayor = num2;
+        } else {
+            mayor = num3;
+        } end
+    } end
+    
+    // Mostrar el resultado
+     // Indicador para mostrar el mayor
+    write mayor;
+}

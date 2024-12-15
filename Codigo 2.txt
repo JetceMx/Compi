@@ -1,0 +1,36 @@
+program {
+    int categoria;
+    float sueldo, aumento, nuevo_sueldo;
+    
+    // Leer datos
+     // Indicador para ingresar categoría
+    read categoria;
+    // Indicador para ingresar sueldo
+    read sueldo;
+    
+    // Calcular aumento según categoría
+    if categoria == 1 then {
+        aumento = sueldo * 0.15;  // 15% de aumento
+    } else {
+        if categoria == 2 then {
+            aumento = sueldo * 0.10;  // 10% de aumento
+        } else {
+            if categoria == 3 then {
+                aumento = sueldo * 0.08;  // 8% de aumento
+            } else {
+                if categoria == 4 then {
+                    aumento = sueldo * 0.07;  // 7% de aumento
+                } end
+            } end
+        } end
+    } end
+    
+    // Calcular nuevo sueldo
+    nuevo_sueldo = sueldo + aumento;
+    
+    // Mostrar resultados
+      // Indicador para mostrar categoría
+    write categoria;
+     // Indicador para mostrar nuevo sueldo
+    write nuevo_sueldo;
+}

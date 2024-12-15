@@ -1,0 +1,17 @@
+program {
+    float base, altura, perimetro, area;
+    read base;
+    read altura;
+    
+    // Calcular perímetro: 2 * (base + altura)
+    perimetro = 2 * (base + altura);
+    
+    // Calcular área: base * altura
+    area = base * altura;
+    
+    // Mostrar resultados
+    write 4;
+    write perimetro;
+    write 5;
+    write area;
+}

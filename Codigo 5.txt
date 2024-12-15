@@ -1,0 +1,89 @@
+program {
+    // Declaración de variables
+    float P1, P2, P3, P4, P5;                // Precios
+    int CLAVE_1, CANT_1;                     // Venta tipo 1
+    int CLAVE_2, CANT_2;                     // Venta tipo 2
+    int CLAVE_3, CANT_3;                     // Venta tipo 3
+    int CLAVE_4, CANT_4;                     // Venta tipo 4
+    int CLAVE_5, CANT_5;                     // Venta tipo 5
+    int ventas1, ventas2, ventas3, ventas4, ventas5;   // Totales
+    float total;                             // Montos
+
+    // Leer precios
+    read P1;
+    read P2;
+    read P3;
+    read P4;
+    read P5;
+
+    // Inicializar variables
+    ventas1 = 0;
+    ventas2 = 0;
+    ventas3 = 0;
+    ventas4 = 0;
+    ventas5 = 0;
+    total = 0;
+
+    // Leer venta tipo 1
+    read CLAVE_1;
+    if (CLAVE_1 == 1) then {
+        read CANT_1;
+        ventas1 = ventas1 + CANT_1;
+        total = total + (CANT_1 * P1);
+        write CLAVE_1;
+        write CANT_1;
+        write CANT_1 * P1;
+    } end
+
+    // Leer venta tipo 2
+    read CLAVE_2;
+    if (CLAVE_2 == 2) then {
+        read CANT_2;
+        ventas2 = ventas2 + CANT_2;
+        total = total + (CANT_2 * P2);
+        write CLAVE_2;
+        write CANT_2;
+        write CANT_2 * P2;
+    } end
+
+    // Leer venta tipo 3
+    read CLAVE_3;
+    if (CLAVE_3 == 3) then {
+        read CANT_3;
+        ventas3 = ventas3 + CANT_3;
+        total = total + (CANT_3 * P3);
+        write CLAVE_3;
+        write CANT_3;
+        write CANT_3 * P3;
+    } end
+
+    // Leer venta tipo 4
+    read CLAVE_4;
+    if (CLAVE_4 == 4) then {
+        read CANT_4;
+        ventas4 = ventas4 + CANT_4;
+        total = total + (CANT_4 * P4);
+        write CLAVE_4;
+        write CANT_4;
+        write CANT_4 * P4;
+    } end
+
+    // Leer venta tipo 5
+    read CLAVE_5;
+    if (CLAVE_5 == 5) then {
+        read CANT_5;
+        ventas5 = ventas5 + CANT_5;
+        total = total + (CANT_5 * P5);
+        write CLAVE_5;
+        write CANT_5;
+        write CANT_5 * P5;
+    } end
+
+    // Imprimir resultados
+    write ventas1;
+    write ventas2;
+    write ventas3;
+    write ventas4;
+    write ventas5;
+    write total;
+}

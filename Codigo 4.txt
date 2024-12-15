@@ -1,0 +1,28 @@
+program {
+    int N, num, sum, i, aux;
+    read N;  // Leer el límite máximo N
+
+    num = 2;  // Comenzamos desde 2 ya que 1 no es perfecto
+    do {
+        sum = 1;  // Iniciamos en 1 porque 1 siempre es divisor
+        i = 2;    // Comenzamos desde 2 para buscar los otros divisores
+
+        do {
+            aux = num / i;  // Calculamos el posible divisor complementario
+            if (aux * i == num) then {  // Verificamos si i es divisor exacto
+                if (i != aux) then {    // Si son diferentes, sumamos ambos
+                    sum = sum + i + aux;
+                } else {                // Si son iguales, sumamos una sola vez
+                    sum = sum + i;
+                } end
+            } end
+            i = i + 1;  // Avanzamos al siguiente divisor posible
+        } until (i * i > num);  // Solo revisamos hasta la raíz cuadrada
+
+        if (sum == num) then {  // Si la suma de divisores es igual al número
+            write  sum;
+        } end
+
+        num = num + 1;  // Avanzamos al siguiente número
+    } until (num > N);  // Terminamos cuando num supera N
+}
