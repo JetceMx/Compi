@@ -1018,7 +1018,7 @@ def analyze():
     processed_reads.clear() 
     output_buffer.clear()
     output_text.delete('1.0', tk.END)
-    tiny_code_text.delete('1.0', tk.END) 
+    #tiny_code_text.delete('1.0', tk.END) 
     
     input_text = text_area.get("1.0", tk.END)
     division_by_zero_reported = False
@@ -1051,8 +1051,8 @@ def analyze():
      # Generar código Tiny a partir del código P
     if intermediate_code and "Error" not in intermediate_code:
         tiny_code = translate_p_to_tiny(intermediate_code)
-        tiny_code_text.delete('1.0', tk.END)
-        tiny_code_text.insert('1.0', tiny_code)
+        #tiny_code_text.delete('1.0', tk.END)
+        #tiny_code_text.insert('1.0', tiny_code)
    
     result = parser.parse(input_text, lexer=lexer, tracking=True)
     print(f"DEBUG: Resultado del parsing: {result}")
@@ -1297,21 +1297,21 @@ intermediate_code_frame = ttk.Frame(notebook)
 notebook.add(intermediate_code_frame, text="Código Intermedio")
 
 # Pestaña de código Tiny
-tiny_code_frame = ttk.Frame(notebook)
-notebook.add(tiny_code_frame, text="Código Tiny")
+#tiny_code_frame = ttk.Frame(notebook)
+#notebook.add(tiny_code_frame, text="Código Tiny")
 
 # Área de texto para el código Tiny
-tiny_code_text = scrolledtext.ScrolledText(tiny_code_frame, wrap=tk.WORD)
-tiny_code_text.pack(fill='both', expand=True, padx=10, pady=10)
+# tiny_code_text = scrolledtext.ScrolledText(tiny_code_frame, wrap=tk.WORD)
+# tiny_code_text.pack(fill='both', expand=True, padx=10, pady=10)
 
-def copy_tiny_code():
-    tiny_code = tiny_code_text.get("1.0", tk.END)
-    root.clipboard_clear()
-    root.clipboard_append(tiny_code)
-    root.update()
+# def copy_tiny_code():
+#    tiny_code = tiny_code_text.get("1.0", tk.END)
+#    root.clipboard_clear()
+#    root.clipboard_append(tiny_code)
+#    root.update()
 
-copy_tiny_button = tk.Button(tiny_code_frame, text="Copiar Código Tiny", command=copy_tiny_code)
-copy_tiny_button.pack(pady=5)
+#copy_tiny_button = tk.Button(tiny_code_frame, text="Copiar Código Tiny", command=copy_tiny_code)
+#copy_tiny_button.pack(pady=5)
 
 # 4. Añade esto en la sección de creación de la interfaz gráfica
 # Crear un nuevo frame para la salida del programa
