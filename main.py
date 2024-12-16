@@ -72,15 +72,16 @@ class CodeGenerator:
             elif node[0] == 'id':
                 return node[1]
             elif node[0] == 'if':
-                self.visit_if(node)
+                return self.visit_if(node)
             elif node[0] == 'while':
-                self.visit_while(node)
+                return self.visit_while(node)
             elif node[0] == 'do_until':
-                self.visit_do_until(node)
+                return self.visit_do_until(node)
             elif node[0] == 'write':
-                self.visit_write(node)
+                return self.visit_write(node)
             elif node[0] == 'read':
-                self.visit_read(node)
+                return self.visit_read(node)
+        return None
                 
     def visit_program(self, node):
         declarations = node[1][1] if len(node) > 1 else []
@@ -100,15 +101,38 @@ class CodeGenerator:
     def visit_assignment(self, node):
         var_name = node[1][1]
         value = self.generate_code(node[2])
-        self.pcode.emit('STORE', value, None, var_name)
+        if value is not None:
+            self.pcode.emit('STORE', value, None, var_name)
         
     def visit_binop(self, node):
-        op = node[1]
-        left = self.generate_code(node[2])
-        right = self.generate_code(node[3])
+        """
+        Maneja operaciones binarias de forma general, asegurando que cada operación
+        intermedia se guarde en un temporal.
+        """
+        def evaluate_node(node):
+            """Evalúa un nodo recursivamente y retorna un identificador (temporal o directo)"""
+            if isinstance(node, tuple):
+                if node[0] == 'binop':
+                    # Si es una operación binaria, necesitamos evaluarla completamente
+                    return self.visit_binop(node)
+                elif node[0] == 'number':
+                    return str(node[1])
+                elif node[0] == 'id':
+                    return node[1]
+                elif node[0] == 'group':
+                    # Para expresiones entre paréntesis, evaluar su contenido
+                    return evaluate_node(node[1])
+            return str(node)
+
+        # Obtener operandos procesados
+        left = evaluate_node(node[2])
+        right = evaluate_node(node[3])
         
+        # Crear un nuevo temporal para el resultado de esta operación
         result = self.pcode.get_temp()
         
+        # Emitir la instrucción correspondiente
+        op = node[1]
         if op == '+':
             self.pcode.emit('ADD', left, right, result)
         elif op == '-':
@@ -121,9 +145,9 @@ class CodeGenerator:
             self.pcode.emit('POW', left, right, result)
         elif op in ['<', '<=', '>', '>=', '==', '!=']:
             op_map = {'<': 'LT', '<=': 'LE', '>': 'GT', '>=': 'GE', 
-                     '==': 'EQ', '!=': 'NE'}
+                    '==': 'EQ', '!=': 'NE'}
             self.pcode.emit(op_map[op], left, right, result)
-            
+        
         return result
         
     def visit_if(self, node):
